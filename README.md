@@ -330,8 +330,12 @@ Separating the research engine from the distributed lakehouse allows:
 │   ├── compare_strategies_simple.py  # Rule-based (RSI, Moving Average) backtesting benchmark
 │   ├── get_data.py                   # Macroeconomic & financial data acquisition utility
 │   └── README.md                     # Detailed ML engine technical documentation
-
-├── airflow/                          # ⚙️ DATA ENGINEERING PoC: Airflow Orchestration
+│
+├── tests/                            # 🧪 Automated Unit & Integration Tests
+│   ├── test_config.py                # Path resolution and parameter tests
+│   ├── test_data_loader.py           # Dataset integrity & presence tests
+│   └── test_get_data.py              # Data acquisition tests
+│
 │   └── dags/
 │       └── lakehouse_pipeline.py     # DAG scheduling Spark Bronze ingestion jobs
 │
