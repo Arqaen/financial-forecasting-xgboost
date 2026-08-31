@@ -68,6 +68,92 @@ from .simulation import (
 from .tuning import tune_xgb_random_search_timeval
 
 
+
+def generate_folds(
+    n: int,
+    min_train: int,
+    test_size: int,
+    purge: int,
+    embargo: int = 0,
+) -> List[Tuple[slice, slice]]:
+    """Generate expanding walk-forward train and test index slices with purging and embargo.
+
+    This pure arithmetic function calculates the index bounds for temporal cross-validation
+    folds without dependencies on pandas or machine learning libraries.
+
+    Args:
+        n: Total number of observations in the dataset.
+        min_train: Minimum / initial training window size.
+        test_size: Size of each out-of-sample test window.
+        purge: Purging gap in periods between train end and test start to eliminate label lookahead.
+        embargo: Embargo period after test window before the next fold starts.
+
+    Returns:
+        List of tuples (train_slice, test_slice) for each walk-forward fold.
+    """
+    if n <= 0 or min_train <= 0 or test_size <= 0 or purge < 0 or embargo < 0:
+        return []
+    if min_train <= purge:
+        return []
+
+    folds: List[Tuple[slice, slice]] = []
+    start = int(min_train)
+
+    while start < n - test_size:
+        train_end = start - purge
+        test_end = start + test_size
+        folds.append((slice(0, train_end), slice(start, test_end)))
+        start = test_end + embargo
+
+    return folds
+
+
+def split_train_val_internal(
+    train_len: int,
+    horizon: int,
+    val_ratio: float = 0.2,
+    score_frac: float = SCORE_FRAC,
+) -> Tuple[slice, slice, slice]:
+    """Split a training window into internal train, early stopping, and scoring validation slices.
+
+    Pure arithmetic function for dividing training data into training, early stopping validation,
+    and threshold optimization sets with lookahead purging.
+
+    Args:
+        train_len: Number of observations in the fold's training set.
+        horizon: Gap in periods between internal train and validation to prevent lookahead.
+        val_ratio: Ratio of train_len reserved for validation.
+        score_frac: Fraction of validation set reserved for threshold scoring vs early stopping.
+
+    Returns:
+        Tuple of (tr_slice, es_slice, score_slice).
+    """
+    val_size = int(train_len * val_ratio)
+    gap = int(horizon)
+    tr_end = train_len - (val_size + gap)
+
+    if tr_end <= 0 or val_size <= 0:
+        return slice(0, train_len), slice(train_len, train_len), slice(train_len, train_len)
+
+    tr_slice = slice(0, tr_end)
+    val_start = train_len - val_size
+
+    if val_size < 3:
+        es_slice = slice(val_start, train_len)
+        score_slice = slice(val_start, train_len)
+    else:
+        score_size = max(1, int(val_size * score_frac))
+        es_size = val_size - score_size
+        if es_size < 1:
+            es_size = 1
+            score_size = val_size - 1
+
+        es_slice = slice(val_start, val_start + es_size)
+        score_slice = slice(val_start + es_size, train_len)
+
+    return tr_slice, es_slice, score_slice
+
+
 def run_walk_forward_evaluation(
     df: pd.DataFrame,
     features: List[str],
@@ -122,16 +208,17 @@ def run_walk_forward_evaluation(
 
     best_params_global: Optional[Dict] = None
 
-    start = int(min_train_size)
-    purge = int(horizon)
-    embargo = 0
+    folds = generate_folds(
+        n=len(df),
+        min_train=min_train_size,
+        test_size=test_size,
+        purge=horizon,
+        embargo=0,
+    )
 
-    while start < len(df) - test_size:
-        train_end = start - purge
-        test_end = start + test_size
-
-        train_df = df.iloc[:train_end]
-        test_df = df.iloc[start:test_end]
+    for train_slice, test_slice in folds:
+        train_df = df.iloc[train_slice]
+        test_df = df.iloc[test_slice]
 
         X_train = train_df[features]
         y_train = train_df["target"].astype(int)
@@ -140,31 +227,19 @@ def run_walk_forward_evaluation(
         y_test = test_df["target"].astype(int)
 
         # Internal temporal validation split
-        val_size = int(len(X_train) * 0.2)
-        gap = int(horizon)
-        tr_end = -(val_size + gap)
+        tr_slice, es_slice, score_slice = split_train_val_internal(
+            train_len=len(X_train),
+            horizon=horizon,
+            val_ratio=0.2,
+            score_frac=SCORE_FRAC,
+        )
 
-        X_tr = X_train.iloc[:tr_end]
-        y_tr = y_train.iloc[:tr_end]
-        X_val = X_train.iloc[-val_size:]
-        y_val = y_train.iloc[-val_size:]
-
-        if len(X_val) < 3:
-            X_es = X_val
-            y_es = y_val
-            X_score = X_val
-            y_score = y_val
-        else:
-            score_size = max(1, int(len(X_val) * SCORE_FRAC))
-            es_size = len(X_val) - score_size
-            if es_size < 1:
-                es_size = 1
-                score_size = len(X_val) - 1
-
-            X_es = X_val.iloc[:es_size]
-            y_es = y_val.iloc[:es_size]
-            X_score = X_val.iloc[es_size:]
-            y_score = y_val.iloc[es_size:]
+        X_tr = X_train.iloc[tr_slice]
+        y_tr = y_train.iloc[tr_slice]
+        X_es = X_train.iloc[es_slice]
+        y_es = y_train.iloc[es_slice]
+        X_score = X_train.iloc[score_slice]
+        y_score = y_train.iloc[score_slice]
 
         if len(np.unique(y_tr)) < 2:
             best_t, _ = 0.5, float("nan")
@@ -247,8 +322,6 @@ def run_walk_forward_evaluation(
 
         loglosses.append(binary_logloss(y_test.values, proba))
         briers.append(float(brier_score_loss(y_test, proba)))
-
-        start = test_end + embargo
 
     # ==========================================
     # Scorecards & Consolidated WF DataFrame
