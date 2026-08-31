@@ -7,11 +7,11 @@
 ![Storage](https://img.shields.io/badge/storage-MinIO-C72E49)
 ![ML](https://img.shields.io/badge/ML-XGBoost%20%2B%20SHAP-189AB4)
 
-An end-to-end portfolio project combining **data engineering** and **applied machine learning**: a Docker-based lakehouse pipeline for event data, plus an independent financial research workflow for time-aware modelling, explainability, and strategy backtesting.
+A **Proof of Concept (PoC)** platform combining **data engineering** and **applied financial machine learning** across two decoupled architectural modules:
+1. A containerised Lakehouse data pipeline (Kafka, Spark, MinIO, Airflow) for synthetic streaming event ingestion and Bronze-layer partitioning.
+2. An independent quantitative research & ML engine (XGBoost, SHAP) with temporal walk-forward validation and macroeconomic regime forecasting.
 
-The project demonstrates how I design reproducible data infrastructure, transform raw events into typed and partitioned datasets, and evaluate predictive models without breaking the temporal structure of financial data.
-
-> Built as a final-year project for learning, experimentation, and portfolio demonstration. It is not production infrastructure or financial advice.
+> **Project Nature & Scope:** Built as an academic Proof of Concept (TFG) for learning, experimentation, and portfolio demonstration. The data engineering infrastructure and ML research engine are designed as modular, decoupled systems to study each domain in depth before unified end-to-end integration. It is not production infrastructure or financial advice.
 
 ## What this project demonstrates
 
@@ -200,6 +200,7 @@ Avoid `docker compose down -v` unless you intentionally want to delete the local
 
 ## Limitations
 
+- **Decoupled Architecture (Data Pipeline vs. ML Engine):** The data engineering platform (Airflow/Spark/MinIO) and the ML research workflow operate as decoupled modules. The lakehouse pipeline processes synthetic streaming telemetry, whereas the ML engine trains on historical market and macroeconomic datasets.
 - The platform is designed for local development, not production deployment.
 - Kafka runs as a single broker with replication factor one and ZooKeeper coordination.
 - MinIO uses HTTP inside the Docker network.
@@ -211,6 +212,8 @@ Avoid `docker compose down -v` unless you intentionally want to delete the local
 
 - Implement Silver cleaning, validation, and deduplication.
 - Build Gold aggregates and analytics-ready tables.
+- Unify data lakehouse and ML research workflows via a dedicated Feature Store layer.
+- Integrate automated MLOps retraining and inference DAGs in Airflow with experiment tracking.
 - Add automated data-quality checks and tests.
 - Add pipeline observability and freshness monitoring.
 - Replace the local ZooKeeper-based Kafka setup with a production-oriented coordination approach.
