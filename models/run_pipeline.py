@@ -23,10 +23,7 @@ from src.config import (
 from src.data_loader import load_raw_dataset
 from src.explainability import train_final_model_and_explain
 from src.features import prepare_modeling_dataset
-from src.metrics import (
-    compute_spearman_rank_corr,
-    correlation_report,
-)
+from src.metrics import compute_spearman_rank_corr, correlation_report
 from src.plots import (
     plot_correlation_heatmap,
     plot_spearman_rank_corr_bar,

@@ -61,12 +61,8 @@ from .plots import (
     plot_rolling_logloss_wf,
     save_table_figure,
 )
-from .simulation import (
-    simulate_monthly_dca_roi,
-    simulate_value_averaging_modified_roi,
-)
+from .simulation import simulate_monthly_dca_roi, simulate_value_averaging_modified_roi
 from .tuning import tune_xgb_random_search_timeval
-
 
 
 def generate_folds(

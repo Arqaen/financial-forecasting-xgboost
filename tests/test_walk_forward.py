@@ -5,8 +5,8 @@ from typing import Tuple
 
 import numpy as np
 import pandas as pd
-import pytest
-from hypothesis import assume, given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from models.src.walk_forward import (
     generate_folds,
@@ -14,10 +14,10 @@ from models.src.walk_forward import (
     split_train_val_internal,
 )
 
-
 # ==============================================================================
 # Hypothesis Strategies
 # ==============================================================================
+
 
 @st.composite
 def valid_wf_params(draw) -> Tuple[int, int, int, int, int]:
@@ -34,12 +34,15 @@ def valid_wf_params(draw) -> Tuple[int, int, int, int, int]:
 # Property-Based Invariant Tests (Hypothesis)
 # ==============================================================================
 
+
 @given(params=valid_wf_params())
 @settings(max_examples=250)
 def test_property_zero_lookahead_and_purge_gap(params: Tuple[int, int, int, int, int]) -> None:
     """Invariant: Train and Test indices are strictly disjoint, separated by >= purge gap."""
     n, min_train, test_size, purge, embargo = params
-    folds = generate_folds(n=n, min_train=min_train, test_size=test_size, purge=purge, embargo=embargo)
+    folds = generate_folds(
+        n=n, min_train=min_train, test_size=test_size, purge=purge, embargo=embargo
+    )
     assert len(folds) >= 1
 
     for train_slice, test_slice in folds:
@@ -47,18 +50,18 @@ def test_property_zero_lookahead_and_purge_gap(params: Tuple[int, int, int, int,
         test_indices = set(range(test_slice.start, test_slice.stop))
 
         # 1. Zero lookahead: No test observation is in train
-        assert train_indices.isdisjoint(test_indices), (
-            f"Train {train_slice} and Test {test_slice} overlap!"
-        )
+        assert train_indices.isdisjoint(
+            test_indices
+        ), f"Train {train_slice} and Test {test_slice} overlap!"
 
         # 2. Train strictly precedes test
         assert train_slice.stop <= test_slice.start
 
         # 3. Purging gap is strictly enforced: test_start - train_end == purge
         purging_gap = test_slice.start - train_slice.stop
-        assert purging_gap == purge, (
-            f"Expected purge gap of {purge}, got {purging_gap} for train {train_slice}, test {test_slice}"
-        )
+        assert (
+            purging_gap == purge
+        ), f"Expected purge gap of {purge}, got {purging_gap} for train {train_slice}, test {test_slice}"
 
         # 4. Gap indices are disjoint from both train and test
         gap_indices = set(range(train_slice.stop, test_slice.start))
@@ -72,7 +75,9 @@ def test_property_zero_lookahead_and_purge_gap(params: Tuple[int, int, int, int,
 def test_property_fold_bounds_and_test_sizes(params: Tuple[int, int, int, int, int]) -> None:
     """Invariant: All fold slices remain within [0, n] and test window length matches test_size."""
     n, min_train, test_size, purge, embargo = params
-    folds = generate_folds(n=n, min_train=min_train, test_size=test_size, purge=purge, embargo=embargo)
+    folds = generate_folds(
+        n=n, min_train=min_train, test_size=test_size, purge=purge, embargo=embargo
+    )
 
     for train_slice, test_slice in folds:
         # Bounds check
@@ -85,10 +90,14 @@ def test_property_fold_bounds_and_test_sizes(params: Tuple[int, int, int, int, i
 
 @given(params=valid_wf_params())
 @settings(max_examples=250)
-def test_property_temporal_monotonicity_and_expansion(params: Tuple[int, int, int, int, int]) -> None:
+def test_property_temporal_monotonicity_and_expansion(
+    params: Tuple[int, int, int, int, int]
+) -> None:
     """Invariant: Test windows advance forward in time, and train windows expand monotonically."""
     n, min_train, test_size, purge, embargo = params
-    folds = generate_folds(n=n, min_train=min_train, test_size=test_size, purge=purge, embargo=embargo)
+    folds = generate_folds(
+        n=n, min_train=min_train, test_size=test_size, purge=purge, embargo=embargo
+    )
 
     for k in range(len(folds) - 1):
         curr_train, curr_test = folds[k]
@@ -116,7 +125,9 @@ def test_property_robustness_on_arbitrary_inputs(
     n: int, min_train: int, test_size: int, purge: int, embargo: int
 ) -> None:
     """Invariant: generate_folds never throws exceptions on arbitrary/negative inputs."""
-    folds = generate_folds(n=n, min_train=min_train, test_size=test_size, purge=purge, embargo=embargo)
+    folds = generate_folds(
+        n=n, min_train=min_train, test_size=test_size, purge=purge, embargo=embargo
+    )
     assert isinstance(folds, list)
 
     if min_train <= purge or n <= 0 or min_train <= 0 or test_size <= 0 or purge < 0 or embargo < 0:
@@ -175,6 +186,7 @@ def test_property_internal_validation_split_invariants(
 # ==============================================================================
 # End-to-End Integration Tests
 # ==============================================================================
+
 
 def test_run_walk_forward_evaluation_execution(tmp_path: Path) -> None:
     """Verify full walk-forward execution on a small synthetic dataset."""
