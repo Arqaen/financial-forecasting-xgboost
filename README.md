@@ -1,6 +1,7 @@
 # Financial time series forecasting with XGBoost
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)
+[![CI](https://github.com/Arqaen/data-pipeline-management/actions/workflows/ci.yml/badge.svg)](https://github.com/Arqaen/data-pipeline-management/actions/workflows/ci.yml)
 ![Machine Learning](https://img.shields.io/badge/ML-XGBoost%20%7C%20SHAP-189AB4?logo=scikitlearn&logoColor=white)
 ![Validation](https://img.shields.io/badge/validation-Purged%20Walk--Forward-success)
 ![Data Engineering](https://img.shields.io/badge/data%20engineering-Kafka%20%7C%20Spark%20%7C%20Airflow-orange)
@@ -325,12 +326,7 @@ Separating the research engine from the distributed lakehouse allows:
 │   ├── compare_strategies_simple.py  # Rule-based (RSI, Moving Average) backtesting benchmark
 │   ├── get_data.py                   # Macroeconomic & financial data acquisition utility
 │   └── README.md                     # Detailed ML engine technical documentation
-│
-├── tests/                            # 🧪 Automated Unit & Integration Tests
-│   ├── test_config.py                # Path resolution and parameter tests
-│   ├── test_data_loader.py           # Dataset integrity & presence tests
-│   └── test_get_data.py              # Data acquisition tests
-│
+
 ├── airflow/                          # ⚙️ DATA ENGINEERING PoC: Airflow Orchestration
 │   └── dags/
 │       └── lakehouse_pipeline.py     # DAG scheduling Spark Bronze ingestion jobs
