@@ -125,6 +125,20 @@ python models/run_pipeline.py \
     --random-search
 ```
 
+### Data Acquisition & Updates (`get_data.py`)
+All 34 required historical datasets are stored directly in `models/data/`. To download or refresh datasets:
+```bash
+# Refresh all downloadable market and macroeconomic datasets:
+python models/get_data.py --all
+
+# Download or update specific data sources:
+python models/get_data.py --source spy    # S&P 500 (SPY)
+python models/get_data.py --source cape   # Shiller CAPE ratio
+python models/get_data.py --source pmi    # ISM Manufacturing PMI
+python models/get_data.py --source fred   # All St. Louis Fed FRED series
+python models/get_data.py --source fred --fred-id M2SL  # Specific FRED series
+```
+
 ---
 
 ## 📊 Generated Diagnostic Artifacts (`metrics/`)
