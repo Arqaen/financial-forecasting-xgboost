@@ -168,11 +168,11 @@ Use the credentials configured in `.env`.
 The research workflow deliberately uses chronological evaluation rather than a random train/test split:
 
 1. [`get_data.py`](models/get_data.py) acquires selected historical market and macroeconomic series.
-2. [`predictions.py`](models/predictions.py) aligns them to a monthly frequency and builds lagged, macroeconomic, valuation, momentum, and technical features.
+2. [`run_pipeline.py`](models/run_pipeline.py) / [`predictions.py`](models/predictions.py) aligns series to a monthly frequency and builds lagged macroeconomic, valuation, momentum, and technical features.
 3. A forward-return label is created for the configured horizon and excluded from the predictors.
-4. Purged walk-forward folds train on past observations and evaluate on later periods.
+4. Purged walk-forward folds train on past observations and evaluate on later periods with temporal embargo.
 5. Out-of-sample predictions are assessed with classification, calibration, stability, risk, and turnover metrics.
-6. A final model produces feature-importance and SHAP explanations for interpretation.
+6. A final model produces feature-importance and SHAP explanations for interpretation (see [`models/README.md`](models/README.md)).
 7. [`compare_strategies_simple.py`](models/compare_strategies_simple.py) compares moving-average and RSI rules with DCA and modified value averaging.
 
 Generated research artefacts include CSV summaries and diagnostic, calibration, feature-importance, SHAP, and strategy-comparison charts. No performance figure is presented here because results depend on the selected data, horizon, parameters, costs, and evaluation period.
