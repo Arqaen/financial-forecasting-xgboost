@@ -91,7 +91,7 @@ def test_property_fold_bounds_and_test_sizes(params: Tuple[int, int, int, int, i
 @given(params=valid_wf_params())
 @settings(max_examples=250)
 def test_property_temporal_monotonicity_and_expansion(
-    params: Tuple[int, int, int, int, int]
+    params: Tuple[int, int, int, int, int],
 ) -> None:
     """Invariant: Test windows advance forward in time, and train windows expand monotonically."""
     n, min_train, test_size, purge, embargo = params
