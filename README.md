@@ -140,7 +140,7 @@ Add `-d` before `--build` to run it in the background.
 | Spark Master | http://localhost:8080 | Cluster and job status |
 | MinIO API | http://localhost:9000 | S3-compatible endpoint |
 | MinIO Console | http://localhost:9001 | Object storage UI |
-| Kafka | `localhost:9092` | Local broker endpoint |
+| Kafka | http://localhost:9092 | Local broker endpoint |
 
 Use the credentials configured in `.env`.
 
