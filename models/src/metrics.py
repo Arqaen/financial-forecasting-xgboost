@@ -167,7 +167,9 @@ def expected_calibration_error(
     Returns:
         Scalar ECE metric.
     """
-    dfp = pd.DataFrame({"y": np.asarray(y_true, dtype=float), "p": np.asarray(y_proba, dtype=float)})
+    dfp = pd.DataFrame(
+        {"y": np.asarray(y_true, dtype=float), "p": np.asarray(y_proba, dtype=float)}
+    )
     dfp = dfp.replace([np.inf, -np.inf], np.nan).dropna()
     if dfp.empty:
         return float("nan")
@@ -217,7 +219,9 @@ def brier_decomposition(
     Returns:
         Dictionary with decomposed components and effective bin counts.
     """
-    dfp = pd.DataFrame({"y": np.asarray(y_true, dtype=float), "p": np.asarray(y_proba, dtype=float)})
+    dfp = pd.DataFrame(
+        {"y": np.asarray(y_true, dtype=float), "p": np.asarray(y_proba, dtype=float)}
+    )
     dfp = dfp.replace([np.inf, -np.inf], np.nan).dropna()
     if dfp.empty:
         return {
@@ -409,13 +413,21 @@ def compute_return_risk_metrics(
     total_return = float(equity[-1] - 1.0)
 
     years = float(n) / float(periods_per_year) if periods_per_year else float("nan")
-    cagr = float(equity[-1] ** (1.0 / years) - 1.0) if years and years > 0 and equity[-1] > 0 else float("nan")
+    cagr = (
+        float(equity[-1] ** (1.0 / years) - 1.0)
+        if years and years > 0 and equity[-1] > 0
+        else float("nan")
+    )
 
     vol = float(np.std(r, ddof=1))
     ann_vol = float(vol * np.sqrt(float(periods_per_year))) if periods_per_year else float("nan")
 
     excess_ann = float(cagr - float(risk_free_rate_annual)) if np.isfinite(cagr) else float("nan")
-    sharpe = float(excess_ann / ann_vol) if ann_vol and ann_vol > 0 and np.isfinite(excess_ann) else float("nan")
+    sharpe = (
+        float(excess_ann / ann_vol)
+        if ann_vol and ann_vol > 0 and np.isfinite(excess_ann)
+        else float("nan")
+    )
 
     mdd = max_drawdown_from_equity(equity)
     return {
@@ -479,7 +491,11 @@ def compute_exposure_turnover(exposure: pd.Series) -> Dict[str, float]:
     x = exposure.copy()
     x = x.replace([np.inf, -np.inf], np.nan).dropna().astype(float)
     if len(x) < 2:
-        return {"n": float(len(x)), "mean_abs_change": float("nan"), "median_abs_change": float("nan")}
+        return {
+            "n": float(len(x)),
+            "mean_abs_change": float("nan"),
+            "median_abs_change": float("nan"),
+        }
 
     dx = x.diff().abs().iloc[1:]
     return {

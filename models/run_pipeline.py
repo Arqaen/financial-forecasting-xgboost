@@ -107,7 +107,9 @@ def run_pipeline(
     print(f"Loading and assembling 28 market & macroeconomic series...")
     raw_df = load_raw_dataset()
 
-    print(f"Applying feature engineering, publication lags, and target labels (horizon={horizon}m)...")
+    print(
+        f"Applying feature engineering, publication lags, and target labels (horizon={horizon}m)..."
+    )
     selected_features = features or DEFAULT_FEATURES
     df, valid_features = prepare_modeling_dataset(
         raw_df,
@@ -117,7 +119,9 @@ def run_pipeline(
         end_date=end_date,
         min_history=min_history,
     )
-    print(f"Active modeling dataset: {len(df)} monthly observations | Features ({len(valid_features)}): {valid_features}")
+    print(
+        f"Active modeling dataset: {len(df)} monthly observations | Features ({len(valid_features)}): {valid_features}"
+    )
 
     # Stage Dispatcher
     if stage in ("all", "eda"):

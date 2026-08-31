@@ -218,10 +218,17 @@ def run_final_rollout(
     # Risk, Turnover, and Hard Calibration
     roll_ret_df = roll_plot_df[["date", "close_t", "proba_up", "pred", "actual"]].copy()
     roll_ret_df["date"] = pd.to_datetime(roll_ret_df["date"])
-    roll_ret_df = roll_ret_df.sort_values("date").replace([np.inf, -np.inf], np.nan).dropna(subset=["close_t", "proba_up"])
+    roll_ret_df = (
+        roll_ret_df.sort_values("date")
+        .replace([np.inf, -np.inf], np.nan)
+        .dropna(subset=["close_t", "proba_up"])
+    )
 
     if len(roll_ret_df) >= 3:
-        roll_ret_df["ret_1m"] = roll_ret_df["close_t"].astype(float).shift(-1) / roll_ret_df["close_t"].astype(float) - 1.0
+        roll_ret_df["ret_1m"] = (
+            roll_ret_df["close_t"].astype(float).shift(-1) / roll_ret_df["close_t"].astype(float)
+            - 1.0
+        )
         roll_ret_df = roll_ret_df.iloc[:-1].copy()
 
         roll_exposure_proba = np.clip(roll_ret_df["proba_up"].astype(float).to_numpy(), 0.0, 1.0)
@@ -229,8 +236,12 @@ def run_final_rollout(
         roll_ret_1m = roll_ret_df["ret_1m"].astype(float).to_numpy()
 
         roll_risk_bh = compute_return_risk_metrics(roll_ret_1m, periods_per_year=12.0)
-        roll_risk_proba = compute_return_risk_metrics(roll_exposure_proba * roll_ret_1m, periods_per_year=12.0)
-        roll_risk_pred = compute_return_risk_metrics(roll_exposure_pred * roll_ret_1m, periods_per_year=12.0)
+        roll_risk_proba = compute_return_risk_metrics(
+            roll_exposure_proba * roll_ret_1m, periods_per_year=12.0
+        )
+        roll_risk_pred = compute_return_risk_metrics(
+            roll_exposure_pred * roll_ret_1m, periods_per_year=12.0
+        )
 
         roll_risk_table = pd.DataFrame(
             {
@@ -256,8 +267,12 @@ def run_final_rollout(
             title=f"Final Roll-out — Riesgo / Sharpe (retornos 1M, target {horizon}m)",
         )
 
-        roll_stab = compute_signal_stability_metrics(roll_plot_df.set_index(pd.to_datetime(roll_plot_df["date"]))["pred"])
-        roll_turn = compute_exposure_turnover(roll_plot_df.set_index(pd.to_datetime(roll_plot_df["date"]))["proba_up"])
+        roll_stab = compute_signal_stability_metrics(
+            roll_plot_df.set_index(pd.to_datetime(roll_plot_df["date"]))["pred"]
+        )
+        roll_turn = compute_exposure_turnover(
+            roll_plot_df.set_index(pd.to_datetime(roll_plot_df["date"]))["proba_up"]
+        )
         roll_turnover_table = pd.DataFrame(
             {
                 "Valor": [
@@ -289,12 +304,18 @@ def run_final_rollout(
         roll_y_true = roll_plot_df["actual"].astype(int).to_numpy()
         roll_y_proba = np.clip(roll_plot_df["proba_up"].astype(float).to_numpy(), 1e-9, 1.0 - 1e-9)
         roll_base = float(np.mean(roll_y_true)) if len(roll_y_true) else float("nan")
-        roll_ece = expected_calibration_error(roll_y_true, roll_y_proba, n_bins=10, strategy="quantile")
+        roll_ece = expected_calibration_error(
+            roll_y_true, roll_y_proba, n_bins=10, strategy="quantile"
+        )
         roll_bd = brier_decomposition(roll_y_true, roll_y_proba, n_bins=10, strategy="quantile")
 
         roll_y_proba_base = np.full_like(roll_y_proba, float(np.clip(roll_base, 1e-9, 1.0 - 1e-9)))
-        roll_ece_base = expected_calibration_error(roll_y_true, roll_y_proba_base, n_bins=10, strategy="quantile")
-        roll_bd_base = brier_decomposition(roll_y_true, roll_y_proba_base, n_bins=10, strategy="quantile")
+        roll_ece_base = expected_calibration_error(
+            roll_y_true, roll_y_proba_base, n_bins=10, strategy="quantile"
+        )
+        roll_bd_base = brier_decomposition(
+            roll_y_true, roll_y_proba_base, n_bins=10, strategy="quantile"
+        )
 
         roll_calib_hard_table = pd.DataFrame(
             {
@@ -368,9 +389,17 @@ def run_final_rollout(
                 "base_rate": float(np.mean(y_t)) if n_obs else np.nan,
                 "logloss": float(binary_logloss(y_t, y_p)) if n_obs else np.nan,
                 "brier": float(brier_score_loss(y_t, y_p)) if n_obs else np.nan,
-                "precision_top20": float(precision_at_k(pd.Series(y_t), y_p, top_frac=0.2)) if n_obs else np.nan,
-                "lift_top20": float(lift_at_k(pd.Series(y_t), y_p, top_frac=0.2)) if n_obs else np.nan,
-                "recall_0": float(recall_score(y_t, y_pr, pos_label=0, zero_division=0)) if n_obs else np.nan,
+                "precision_top20": (
+                    float(precision_at_k(pd.Series(y_t), y_p, top_frac=0.2)) if n_obs else np.nan
+                ),
+                "lift_top20": (
+                    float(lift_at_k(pd.Series(y_t), y_p, top_frac=0.2)) if n_obs else np.nan
+                ),
+                "recall_0": (
+                    float(recall_score(y_t, y_pr, pos_label=0, zero_division=0))
+                    if n_obs
+                    else np.nan
+                ),
                 "accuracy": float(accuracy_score(y_t, y_pr)) if n_obs else np.nan,
                 "f1": float(f1_score(y_t, y_pr, zero_division=0)) if n_obs else np.nan,
             }
@@ -435,7 +464,9 @@ def run_final_rollout(
 
     # Regime analysis
     if "high_inflation" in df.columns:
-        regime_series_roll = df["high_inflation"].astype(float).map({1.0: "high_inflation", 0.0: "low_inflation"})
+        regime_series_roll = (
+            df["high_inflation"].astype(float).map({1.0: "high_inflation", 0.0: "low_inflation"})
+        )
         roll_regime_df = plot_regime_performance_wf(
             roll_plot_df,
             out_path=output_dir / "final_rollout_regime_performance.png",
@@ -466,7 +497,11 @@ def run_final_rollout(
     pred_aligned_roll = pred_aligned_roll.loc[has_pred_roll]
 
     contrib_bh_roll = pd.Series(MONTHLY_AMOUNT, index=prices_eval_roll.index)
-    contrib_signal_roll = MONTHLY_AMOUNT * float(SIGNAL_MULTIPLIER) * (pred_aligned_roll.astype(int) == 1).astype(float)
+    contrib_signal_roll = (
+        MONTHLY_AMOUNT
+        * float(SIGNAL_MULTIPLIER)
+        * (pred_aligned_roll.astype(int) == 1).astype(float)
+    )
 
     bh_curve_roll = simulate_monthly_dca_roi(prices_eval_roll, contrib_bh_roll)
     sig_curve_roll = simulate_monthly_dca_roi(prices_eval_roll, contrib_signal_roll)

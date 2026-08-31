@@ -61,7 +61,7 @@ def save_table_figure(
     if footer:
         fig.text(0.01, 0.02, footer, ha="left", va="bottom", fontsize=9)
 
-    fig.tight_layout(rect=[0, 0.04 if footer else 0, 1, 0.95])
+    fig.tight_layout(rect=(0.0, 0.04 if footer else 0.0, 1.0, 0.95))
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=200)
     plt.close(fig)
@@ -105,7 +105,9 @@ def plot_confusion_matrix_heatmap(
             val = int(mat[i, j])
             txt = f"{labels[i, j]}\n{val}"
             color = "white" if (vmax > 0 and mat[i, j] / vmax > 0.55) else "black"
-            ax.text(j, i, txt, ha="center", va="center", fontsize=14, color=color, fontweight="bold")
+            ax.text(
+                j, i, txt, ha="center", va="center", fontsize=14, color=color, fontweight="bold"
+            )
 
     cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     cbar.set_label("Conteo")
@@ -212,7 +214,11 @@ def plot_classification_timeline(
         return
 
     y_true = dfp[actual_col].astype(int).to_numpy()
-    y_proba = np.clip(dfp[proba_col].astype(float).to_numpy(), 0.0, 1.0) if proba_col in dfp.columns else None
+    y_proba = (
+        np.clip(dfp[proba_col].astype(float).to_numpy(), 0.0, 1.0)
+        if proba_col in dfp.columns
+        else None
+    )
     if pred_col in dfp.columns:
         y_pred = dfp[pred_col].astype(int).to_numpy()
     elif y_proba is not None:
@@ -427,8 +433,22 @@ def plot_roc_pr_wf(
     fig.suptitle(title, y=0.98)
 
     if len(np.unique(y_true)) < 2:
-        ax_roc.text(0.5, 0.5, "ROC no definida\n(solo 1 clase)", ha="center", va="center", transform=ax_roc.transAxes)
-        ax_pr.text(0.5, 0.5, "PR no definida\n(solo 1 clase)", ha="center", va="center", transform=ax_pr.transAxes)
+        ax_roc.text(
+            0.5,
+            0.5,
+            "ROC no definida\n(solo 1 clase)",
+            ha="center",
+            va="center",
+            transform=ax_roc.transAxes,
+        )
+        ax_pr.text(
+            0.5,
+            0.5,
+            "PR no definida\n(solo 1 clase)",
+            ha="center",
+            va="center",
+            transform=ax_pr.transAxes,
+        )
     else:
         fpr, tpr, _ = roc_curve(y_true, y_proba)
         roc_auc = float(roc_auc_score(y_true, y_proba))
@@ -447,7 +467,9 @@ def plot_roc_pr_wf(
         ap = float(average_precision_score(y_true, y_proba))
         base_rate = float(np.mean(y_true))
         ax_pr.plot(recall, precision, lw=1.8, label=f"AP={ap:.3f}")
-        ax_pr.axhline(base_rate, linestyle="--", color="grey", lw=1.0, label=f"Base-rate={base_rate:.3f}")
+        ax_pr.axhline(
+            base_rate, linestyle="--", color="grey", lw=1.0, label=f"Base-rate={base_rate:.3f}"
+        )
 
         ax_pr.set_title("Precision-Recall")
         ax_pr.set_xlabel("Recall")
@@ -585,11 +607,15 @@ def plot_rolling_logloss_wf(
     roll = point_ll.rolling(int(window), min_periods=max(5, int(window // 3))).mean()
 
     fig, ax = plt.subplots(figsize=(10.5, 4.2))
-    ax.plot(dfp[date_col], roll, color="tab:blue", lw=1.8, label=f"Rolling LogLoss ({int(window)}m)")
+    ax.plot(
+        dfp[date_col], roll, color="tab:blue", lw=1.8, label=f"Rolling LogLoss ({int(window)}m)"
+    )
     ax.set_title(title)
     ax.set_xlabel("Fecha")
     ax.set_ylabel("LogLoss")
-    ax.set_ylim(0.0, max(0.05, float(np.nanquantile(roll.dropna(), 0.98))) if roll.notna().any() else 1.0)
+    ax.set_ylim(
+        0.0, max(0.05, float(np.nanquantile(roll.dropna(), 0.98))) if roll.notna().any() else 1.0
+    )
     ax.grid(True, alpha=0.25)
     ax.legend(loc="lower left")
     fig.tight_layout()
@@ -621,11 +647,15 @@ def plot_rolling_brier_wf(
     roll = point_bs.rolling(int(window), min_periods=max(5, int(window // 3))).mean()
 
     fig, ax = plt.subplots(figsize=(10.5, 4.2))
-    ax.plot(dfp[date_col], roll, color="tab:orange", lw=1.8, label=f"Rolling Brier ({int(window)}m)")
+    ax.plot(
+        dfp[date_col], roll, color="tab:orange", lw=1.8, label=f"Rolling Brier ({int(window)}m)"
+    )
     ax.set_title(title)
     ax.set_xlabel("Fecha")
     ax.set_ylabel("Brier")
-    ax.set_ylim(0.0, max(0.05, float(np.nanquantile(roll.dropna(), 0.98))) if roll.notna().any() else 1.0)
+    ax.set_ylim(
+        0.0, max(0.05, float(np.nanquantile(roll.dropna(), 0.98))) if roll.notna().any() else 1.0
+    )
     ax.grid(True, alpha=0.25)
     ax.legend(loc="lower left")
     fig.tight_layout()
@@ -699,7 +729,9 @@ def plot_regime_performance_wf(
     ax.bar(x + w, rdf["logloss"], width=w, label="LogLoss")
     ax.set_xticks(x)
     ax.set_xticklabels(rdf["regime"].tolist())
-    ax.set_ylim(0.0, max(1.05, float(np.nanmax(rdf[["auc", "brier", "logloss"]].to_numpy())) * 1.05))
+    ax.set_ylim(
+        0.0, max(1.05, float(np.nanmax(rdf[["auc", "brier", "logloss"]].to_numpy())) * 1.05)
+    )
     ax.set_title(title)
     ax.set_ylabel("Métrica")
     ax.grid(True, axis="y", alpha=0.25)
@@ -728,7 +760,9 @@ def plot_equity_curve_directional_wf(
     if dfp.empty:
         return
 
-    fwd_ret = dfp[close_fwd_col].astype(float).to_numpy() / dfp[close_col].astype(float).to_numpy() - 1.0
+    fwd_ret = (
+        dfp[close_fwd_col].astype(float).to_numpy() / dfp[close_col].astype(float).to_numpy() - 1.0
+    )
     exposure = np.clip(dfp[proba_col].astype(float).to_numpy(), 0.0, 1.0)
     strat_ret = exposure * fwd_ret
 
@@ -736,8 +770,12 @@ def plot_equity_curve_directional_wf(
     equity_bh = np.cumprod(1.0 + np.nan_to_num(fwd_ret, nan=0.0))
 
     fig, ax = plt.subplots(figsize=(11.0, 4.8))
-    ax.plot(dfp[date_col], equity_bh, lw=1.8, color="tab:blue", alpha=0.75, label="Buy&Hold (horizon)")
-    ax.plot(dfp[date_col], equity_strat, lw=2.0, color="purple", label="Estrategia (exposure=P(sube))")
+    ax.plot(
+        dfp[date_col], equity_bh, lw=1.8, color="tab:blue", alpha=0.75, label="Buy&Hold (horizon)"
+    )
+    ax.plot(
+        dfp[date_col], equity_strat, lw=2.0, color="purple", label="Estrategia (exposure=P(sube))"
+    )
     ax.set_title(title)
     ax.set_xlabel("Fecha")
     ax.set_ylabel("Equity (multiplicador)")

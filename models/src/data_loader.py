@@ -89,13 +89,25 @@ def load_raw_dataset(data_dir: Optional[Path] = None) -> pd.DataFrame:
             drop_columns=["Price", "High", "Low", "Open", "Volume"],
             data_dir=target_dir,
         ).rename(columns={"Close": "VIX_Close"}),
-        "balance": load_series_csv("balance_fed.csv", date_col="observation_date", data_dir=target_dir),
-        "corp_profit": load_series_csv("corporate_profit.csv", date_col="observation_date", data_dir=target_dir),
-        "corp_spread": load_series_csv("corporate_spread.csv", date_col="observation_date", data_dir=target_dir),
-        "fund_rate": load_series_csv("fund_rate.csv", date_col="observation_date", data_dir=target_dir),
+        "balance": load_series_csv(
+            "balance_fed.csv", date_col="observation_date", data_dir=target_dir
+        ),
+        "corp_profit": load_series_csv(
+            "corporate_profit.csv", date_col="observation_date", data_dir=target_dir
+        ),
+        "corp_spread": load_series_csv(
+            "corporate_spread.csv", date_col="observation_date", data_dir=target_dir
+        ),
+        "fund_rate": load_series_csv(
+            "fund_rate.csv", date_col="observation_date", data_dir=target_dir
+        ),
         "gdp": load_series_csv("gdp.csv", date_col="observation_date", data_dir=target_dir),
-        "hy_spread": load_series_csv("high_yield_spread.csv", date_col="observation_date", data_dir=target_dir),
-        "unemp": load_series_csv("unemployment.csv", date_col="observation_date", data_dir=target_dir),
+        "hy_spread": load_series_csv(
+            "high_yield_spread.csv", date_col="observation_date", data_dir=target_dir
+        ),
+        "unemp": load_series_csv(
+            "unemployment.csv", date_col="observation_date", data_dir=target_dir
+        ),
         "dfii10": load_series_csv("DFII10.csv", date_col="observation_date", data_dir=target_dir),
         "dgs10": load_series_csv("DGS10.csv", date_col="observation_date", data_dir=target_dir),
         "m2sl": load_series_csv("M2SL.csv", date_col="observation_date", data_dir=target_dir),
@@ -111,7 +123,9 @@ def load_raw_dataset(data_dir: Optional[Path] = None) -> pd.DataFrame:
         "cape_data": load_series_csv("cape_data.csv", date_col="Date", data_dir=target_dir).rename(
             columns={"CAPE": "cape_data"}
         ),
-        "core_cpi": load_series_csv("CORESTICKM159SFRBATL.csv", date_col="observation_date", data_dir=target_dir),
+        "core_cpi": load_series_csv(
+            "CORESTICKM159SFRBATL.csv", date_col="observation_date", data_dir=target_dir
+        ),
         "dxy": load_series_csv(
             "dxy.csv",
             date_col="Date",

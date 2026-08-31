@@ -96,7 +96,10 @@ def get_spy_data(data_dir: Path = DATA_DIR) -> Path:
     df = yf.download("SPY", period="max", auto_adjust=False)
     df.reset_index(inplace=True)
     if isinstance(df.columns, pd.MultiIndex):
-        df.columns = [col[0] if col[1] == "" or col[1] == "SPY" else f"{col[0]}_{col[1]}" for col in df.columns]
+        df.columns = [
+            col[0] if col[1] == "" or col[1] == "SPY" else f"{col[0]}_{col[1]}"
+            for col in df.columns
+        ]
     out_path = data_dir / "sp500.csv"
     df.to_csv(out_path, index=False)
     logger.info("Successfully saved S&P 500 data to %s (%d rows)", out_path, len(df))
@@ -110,7 +113,10 @@ def get_dxy_data(data_dir: Path = DATA_DIR) -> Path:
     df = yf.download("DX-Y.NYB", period="max", auto_adjust=False)
     df.reset_index(inplace=True)
     if isinstance(df.columns, pd.MultiIndex):
-        df.columns = [col[0] if col[1] == "" or col[1] == "DX-Y.NYB" else f"{col[0]}_{col[1]}" for col in df.columns]
+        df.columns = [
+            col[0] if col[1] == "" or col[1] == "DX-Y.NYB" else f"{col[0]}_{col[1]}"
+            for col in df.columns
+        ]
     out_path = data_dir / "dxy.csv"
     df.to_csv(out_path, index=False)
     logger.info("Successfully saved DXY data to %s (%d rows)", out_path, len(df))
@@ -124,14 +130,19 @@ def get_vix_data(data_dir: Path = DATA_DIR) -> Path:
     df = yf.download("^VIX", period="max", auto_adjust=False)
     df.reset_index(inplace=True)
     if isinstance(df.columns, pd.MultiIndex):
-        df.columns = [col[0] if col[1] == "" or col[1] == "^VIX" else f"{col[0]}_{col[1]}" for col in df.columns]
+        df.columns = [
+            col[0] if col[1] == "" or col[1] == "^VIX" else f"{col[0]}_{col[1]}"
+            for col in df.columns
+        ]
     out_path = data_dir / "vix.csv"
     df.to_csv(out_path, index=False)
     logger.info("Successfully saved VIX data to %s (%d rows)", out_path, len(df))
     return out_path
 
 
-def download_fred_series(series_id: str, filename: Optional[str] = None, data_dir: Path = DATA_DIR) -> Path:
+def download_fred_series(
+    series_id: str, filename: Optional[str] = None, data_dir: Path = DATA_DIR
+) -> Path:
     """Download a macroeconomic time series from St. Louis Fed FRED API/CSV endpoint."""
     ensure_data_dir(data_dir)
     target_file = filename or f"{series_id}.csv"
@@ -181,7 +192,9 @@ def get_pmi_data(data_dir: Path = DATA_DIR) -> Optional[Path]:
         logger.info("Successfully saved PMI data to %s (%d rows)", out_path, len(df))
         return out_path
     except Exception as e:
-        logger.warning("PMI scraping failed: %s. Existing pmi.csv will be preserved if available.", e)
+        logger.warning(
+            "PMI scraping failed: %s. Existing pmi.csv will be preserved if available.", e
+        )
         return out_path if out_path.exists() else None
 
 

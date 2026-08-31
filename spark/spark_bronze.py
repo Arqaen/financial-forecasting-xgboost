@@ -1,19 +1,12 @@
 import sys
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import (
-    from_json, col, from_unixtime,
-    year, month, dayofmonth, hour
-)
-from pyspark.sql.types import (
-    StructType, StructField,
-    IntegerType, StringType, DoubleType
-)
+from pyspark.sql.functions import from_json, col, from_unixtime, year, month, dayofmonth, hour
+from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DoubleType
 
 
 def main():
     spark = (
-        SparkSession.builder
-        .appName("KafkaToBronzeStructuredStreaming")
+        SparkSession.builder.appName("KafkaToBronzeStructuredStreaming")
         .config("spark.sql.catalogImplementation", "in-memory")
         .getOrCreate()
     )
@@ -25,32 +18,29 @@ def main():
     topic = spark.conf.get("spark.kafka.topic", "events")
     starting_offsets = spark.conf.get("spark.kafka.startingOffsets", "earliest")
     checkpoint_location = spark.conf.get(
-        "spark.bronze.checkpoint.location",
-        "s3a://bronze/checkpoints/eventos_batch"
+        "spark.bronze.checkpoint.location", "s3a://bronze/checkpoints/eventos_batch"
     )
-    output_path = spark.conf.get(
-        "spark.bronze.output.path",
-        "s3a://bronze/eventos_batch"
-    )
+    output_path = spark.conf.get("spark.bronze.output.path", "s3a://bronze/eventos_batch")
 
     print(f"Reading from Kafka: {bootstrap_servers} (topic: {topic})")
     print(f"Checkpoint location: {checkpoint_location}")
     print(f"Output path: {output_path}")
 
     # ===== Esquema =====
-    schema = StructType([
-        StructField("user_id", IntegerType(), True),
-        StructField("product", StringType(), True),
-        StructField("price", DoubleType(), True),
-        StructField("timestamp", DoubleType(), True),  # epoch seconds
-    ])
+    schema = StructType(
+        [
+            StructField("user_id", IntegerType(), True),
+            StructField("product", StringType(), True),
+            StructField("price", DoubleType(), True),
+            StructField("timestamp", DoubleType(), True),  # epoch seconds
+        ]
+    )
 
     # ===== Kafka Structured Streaming Source =====
     # Nota: startingOffsets aplica solo en la primera ejecución si no existe checkpoint.
     # En ejecuciones posteriores, Spark lee automáticamente desde el último offset confirmado en el checkpoint.
     df_kafka = (
-        spark.readStream
-        .format("kafka")
+        spark.readStream.format("kafka")
         .option("kafka.bootstrap.servers", bootstrap_servers)
         .option("subscribe", topic)
         .option("startingOffsets", starting_offsets)
@@ -60,21 +50,16 @@ def main():
 
     # ===== Parse JSON =====
     df = (
-        df_kafka
-        .selectExpr("CAST(value AS STRING) AS json_payload")
+        df_kafka.selectExpr("CAST(value AS STRING) AS json_payload")
         .select(from_json(col("json_payload"), schema).alias("data"))
         .select("data.*")
     )
 
     # ===== Timestamp y Particiones =====
-    df = df.withColumn(
-        "event_time",
-        from_unixtime(col("timestamp"))
-    )
+    df = df.withColumn("event_time", from_unixtime(col("timestamp")))
 
     df = (
-        df
-        .withColumn("year", year("event_time"))
+        df.withColumn("year", year("event_time"))
         .withColumn("month", month("event_time"))
         .withColumn("day", dayofmonth("event_time"))
         .withColumn("hour", hour("event_time"))
@@ -84,8 +69,7 @@ def main():
     # trigger(availableNow=True) procesa todos los datos disponibles en micro-batches y termina.
     # El checkpoint garantiza exactamente-una-vez (idempotencia en reintentos) y evita reprocesar el topic entero.
     query = (
-        df.writeStream
-        .format("parquet")
+        df.writeStream.format("parquet")
         .outputMode("append")
         .option("checkpointLocation", checkpoint_location)
         .option("path", output_path)

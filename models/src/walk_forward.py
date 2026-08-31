@@ -315,17 +315,25 @@ def run_walk_forward_evaluation(
             "close_t_plus_h": all_close_fwd,
         }
     )
-    wf_df = wf_df.sort_values("date").drop_duplicates(subset="date", keep="last").reset_index(drop=True)
+    wf_df = (
+        wf_df.sort_values("date").drop_duplicates(subset="date", keep="last").reset_index(drop=True)
+    )
 
     # ==========================================
     # 1M Realized Risk Metrics & Turnover
     # ==========================================
     wf_ret_df = wf_df[["date", "close_t", "proba_up", "pred", "actual"]].copy()
     wf_ret_df["date"] = pd.to_datetime(wf_ret_df["date"])
-    wf_ret_df = wf_ret_df.sort_values("date").replace([np.inf, -np.inf], np.nan).dropna(subset=["close_t", "proba_up"])
+    wf_ret_df = (
+        wf_ret_df.sort_values("date")
+        .replace([np.inf, -np.inf], np.nan)
+        .dropna(subset=["close_t", "proba_up"])
+    )
 
     if len(wf_ret_df) >= 3:
-        wf_ret_df["ret_1m"] = wf_ret_df["close_t"].astype(float).shift(-1) / wf_ret_df["close_t"].astype(float) - 1.0
+        wf_ret_df["ret_1m"] = (
+            wf_ret_df["close_t"].astype(float).shift(-1) / wf_ret_df["close_t"].astype(float) - 1.0
+        )
         wf_ret_df = wf_ret_df.iloc[:-1].copy()
 
         exposure_proba = np.clip(wf_ret_df["proba_up"].astype(float).to_numpy(), 0.0, 1.0)
@@ -362,7 +370,9 @@ def run_walk_forward_evaluation(
 
         wf_signal_series = wf_df.set_index(pd.to_datetime(wf_df["date"]))["pred"]
         wf_stab = compute_signal_stability_metrics(wf_signal_series)
-        wf_turn = compute_exposure_turnover(wf_df.set_index(pd.to_datetime(wf_df["date"]))["proba_up"])
+        wf_turn = compute_exposure_turnover(
+            wf_df.set_index(pd.to_datetime(wf_df["date"]))["proba_up"]
+        )
 
         wf_turnover_table = pd.DataFrame(
             {
@@ -400,7 +410,9 @@ def run_walk_forward_evaluation(
         wf_bd = brier_decomposition(wf_y_true, wf_y_proba, n_bins=10, strategy="quantile")
 
         wf_y_proba_base = np.full_like(wf_y_proba, float(np.clip(wf_base, 1e-9, 1.0 - 1e-9)))
-        wf_ece_base = expected_calibration_error(wf_y_true, wf_y_proba_base, n_bins=10, strategy="quantile")
+        wf_ece_base = expected_calibration_error(
+            wf_y_true, wf_y_proba_base, n_bins=10, strategy="quantile"
+        )
         wf_bd_base = brier_decomposition(wf_y_true, wf_y_proba_base, n_bins=10, strategy="quantile")
 
         wf_calib_hard_table = pd.DataFrame(
@@ -528,7 +540,9 @@ def run_walk_forward_evaluation(
     )
 
     if "high_inflation" in df.columns:
-        regime_series = df["high_inflation"].astype(float).map({1.0: "high_inflation", 0.0: "low_inflation"})
+        regime_series = (
+            df["high_inflation"].astype(float).map({1.0: "high_inflation", 0.0: "low_inflation"})
+        )
         plot_regime_performance_wf(
             wf_df,
             out_path=output_dir / "walk_forward_regime_performance.png",
@@ -568,7 +582,9 @@ def run_walk_forward_evaluation(
     pred_aligned = pred_aligned.loc[has_pred]
 
     contrib_bh = pd.Series(MONTHLY_AMOUNT, index=prices_eval.index)
-    contrib_signal = MONTHLY_AMOUNT * float(SIGNAL_MULTIPLIER) * (pred_aligned.astype(int) == 1).astype(float)
+    contrib_signal = (
+        MONTHLY_AMOUNT * float(SIGNAL_MULTIPLIER) * (pred_aligned.astype(int) == 1).astype(float)
+    )
 
     bh_curve = simulate_monthly_dca_roi(prices_eval, contrib_bh)
     sig_curve = simulate_monthly_dca_roi(prices_eval, contrib_signal)
@@ -591,6 +607,8 @@ def run_walk_forward_evaluation(
     print(wf_metrics_scorecard)
     print(f"\nROI final Buy&Hold DCA (%): {float(bh_curve['roi_pct'].dropna().iloc[-1]):.2f}%")
     print(f"ROI final Señal ML (%): {float(sig_curve['roi_pct'].dropna().iloc[-1]):.2f}%")
-    print(f"ROI final Value Averaging Modified (%): {float(va_curve['roi_pct'].dropna().iloc[-1]):.2f}%\n")
+    print(
+        f"ROI final Value Averaging Modified (%): {float(va_curve['roi_pct'].dropna().iloc[-1]):.2f}%\n"
+    )
 
     return wf_df, wf_metrics_scorecard

@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_WINDOW_MINUTES = 5
 
+
 def _get_window_minutes() -> int:
     raw_window = os.getenv("WINDOW")
     if raw_window is None or not str(raw_window).strip():
@@ -33,6 +34,7 @@ def _get_window_minutes() -> int:
         )
     return DEFAULT_WINDOW_MINUTES
 
+
 MINIO_USER = os.getenv("MINIO_ROOT_USER", "minioadmin")
 MINIO_PASS = os.getenv("MINIO_ROOT_PASSWORD", "minioadmin")
 WINDOW = _get_window_minutes()
@@ -48,14 +50,13 @@ default_args = {
 with DAG(
     dag_id="lakehouse_pipeline",
     default_args=default_args,
-    schedule=f"*/{WINDOW} * * * *",   
+    schedule=f"*/{WINDOW} * * * *",
     catchup=False,
     max_active_runs=1,
     max_active_tasks=1,
     is_paused_upon_creation=False,
-    tags=["lakehouse", "bronze"]
+    tags=["lakehouse", "bronze"],
 ) as dag:
-
     bronze = SparkSubmitOperator(
         task_id="bronze",
         application="/opt/spark-apps/spark_bronze.py",
@@ -68,16 +69,13 @@ with DAG(
             # ===== Spark =====
             # "spark.master": "spark://spark-master:7077",
             "spark.sql.shuffle.partitions": "4",
-
             # ===== Kafka =====
             "spark.kafka.bootstrap.servers": "kafka:9092",
             "spark.kafka.topic": "events",
             "spark.kafka.startingOffsets": "earliest",
-
             # ===== Bronze Checkpoint & Storage =====
             "spark.bronze.checkpoint.location": "s3a://bronze/checkpoints/eventos_batch",
             "spark.bronze.output.path": "s3a://bronze/eventos_batch",
-
             # ===== MinIO / S3A =====
             "spark.hadoop.fs.s3a.endpoint": "http://minio1:9000",
             "spark.hadoop.fs.s3a.path.style.access": "true",
@@ -88,13 +86,14 @@ with DAG(
             "spark.hadoop.fs.s3a.aws.credentials.provider": "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
             "spark.hadoop.mapreduce.fileoutputcommitter.algorithm.version": "2",
             "spark.hadoop.fs.s3a.committer.name": "directory",
-
             # ===== JARS OBLIGATORIOS =====
-            "spark.jars.packages": ",".join([
-                "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1",
-                "org.apache.hadoop:hadoop-aws:3.3.2",
-                "com.amazonaws:aws-java-sdk-bundle:1.12.262"
-            ]),
+            "spark.jars.packages": ",".join(
+                [
+                    "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1",
+                    "org.apache.hadoop:hadoop-aws:3.3.2",
+                    "com.amazonaws:aws-java-sdk-bundle:1.12.262",
+                ]
+            ),
         },
     )
 

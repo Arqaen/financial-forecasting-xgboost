@@ -4,12 +4,11 @@ import re
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
 
 BASE_DIR = Path(__file__).resolve().parent
 OUT_DIR = BASE_DIR / "backtest"
@@ -204,7 +203,7 @@ def simulate_signal_strategy(
 
 def simulate_value_averaging_modified(prices: pd.Series) -> pd.DataFrame:
     x = float(CONTRIBUTION_AMOUNT)
-    rows = []
+    rows: List[Dict[str, Any]] = []
     shares = 0.0
     invested = 0.0
 

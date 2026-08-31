@@ -235,7 +235,9 @@ def filter_features_by_history(
         Tuple containing (valid_features, dropped_features).
     """
     valid_features = [
-        f for f in feature_names if f in df.columns and float(df[f].notna().mean()) > float(min_history)
+        f
+        for f in feature_names
+        if f in df.columns and float(df[f].notna().mean()) > float(min_history)
     ]
     dropped_features = [f for f in feature_names if f not in valid_features]
     return valid_features, dropped_features
@@ -276,9 +278,13 @@ def prepare_modeling_dataset(
     df = df.loc[start_date:end_date].copy()
 
     # 3. Filter features by valid history
-    valid_features, dropped_features = filter_features_by_history(df, feature_list, min_history=min_history)
+    valid_features, dropped_features = filter_features_by_history(
+        df, feature_list, min_history=min_history
+    )
     if dropped_features:
-        print(f"[Features] Dropped features with insufficient history (<{min_history*100:.0f}%): {dropped_features}")
+        print(
+            f"[Features] Dropped features with insufficient history (<{min_history*100:.0f}%): {dropped_features}"
+        )
 
     # 4. Clean NaNs in target and selected features
     df = df.replace([np.inf, -np.inf], np.nan)

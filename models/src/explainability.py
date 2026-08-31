@@ -8,6 +8,7 @@ from xgboost import XGBClassifier
 
 try:
     import shap
+
     _HAS_SHAP = True
 except ImportError:
     shap = None
@@ -89,14 +90,20 @@ def train_final_model_and_explain(
     print("=" * 60)
     print(f"Última fecha: {last_date.date() if hasattr(last_date, 'date') else last_date}")
     print(f"P(sube) en {horizon} meses: {final_proba:.4f}")
-    print(f"Percentil histórico de P(sube): {final_proba_percentile:.1f}% (z-score: {final_proba_z:.2f})")
-    print(f"In-sample ROC-AUC: {final_auc:.4f} | LogLoss: {final_logloss:.4f} | Brier: {final_brier:.4f}")
+    print(
+        f"Percentil histórico de P(sube): {final_proba_percentile:.1f}% (z-score: {final_proba_z:.2f})"
+    )
+    print(
+        f"In-sample ROC-AUC: {final_auc:.4f} | LogLoss: {final_logloss:.4f} | Brier: {final_brier:.4f}"
+    )
 
     # ==========================================
     # SHAP Tree Explanations
     # ==========================================
     if not _HAS_SHAP:
-        print("[SHAP] Warning: shap library is not installed in the active environment. Skipping SHAP plots.")
+        print(
+            "[SHAP] Warning: shap library is not installed in the active environment. Skipping SHAP plots."
+        )
         return final_model, final_proba, diagnostics
 
     explainer = shap.TreeExplainer(final_model)

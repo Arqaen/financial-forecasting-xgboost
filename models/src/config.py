@@ -22,9 +22,9 @@ MIN_HISTORY_RATIO: float = 0.6
 
 # Walk-forward validation window sizes (in months)
 MIN_TRAIN_SIZE: int = 240  # Minimum 20 years of initial training history
-TEST_SIZE: int = 12        # 1-year test folds
+TEST_SIZE: int = 12  # 1-year test folds
 VAL_SIZE_RATIO: float = 0.2  # Fraction of train fold used for internal temporal validation
-SCORE_FRAC: float = 0.5    # Split between early stopping and threshold score validation
+SCORE_FRAC: float = 0.5  # Split between early stopping and threshold score validation
 
 # Final roll-out evaluation window (last 10 years)
 FINAL_ROLLOUT_MONTHS: int = 120
