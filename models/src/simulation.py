@@ -25,9 +25,10 @@ def simulate_monthly_dca_roi(
     shares = shares_bought.cumsum()
     invested = contrib_clean.cumsum()
     value = shares.mul(prices_clean)
+    inv_val = invested.values
     roi_pct = np.where(
-        invested.values > 0,
-        (value.values - invested.values) / invested.values * 100.0,
+        inv_val > 0,
+        (value.values - inv_val) / np.where(inv_val > 0, inv_val, 1.0) * 100.0,
         np.nan,
     )
 

@@ -11,7 +11,7 @@ from models.src.explainability import train_final_model_and_explain
 
 def test_train_final_model_and_explain(tmp_path: Path) -> None:
     """Verify final model training, output predictions, and diagnostics dictionary."""
-    dates = pd.date_range("2020-01-31", periods=30, freq="M")
+    dates = pd.date_range("2020-01-31", periods=30, freq="ME")
     df = pd.DataFrame(
         {
             "f1": np.linspace(0.0, 1.0, 30),

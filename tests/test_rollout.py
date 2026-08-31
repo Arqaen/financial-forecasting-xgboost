@@ -10,7 +10,7 @@ from models.src.rollout import run_final_rollout
 
 def test_run_final_rollout_insufficient_data(tmp_path: Path) -> None:
     """Verify that rollout safely returns None when historical length is insufficient."""
-    dates = pd.date_range("2020-01-31", periods=10, freq="M")
+    dates = pd.date_range("2020-01-31", periods=10, freq="ME")
     df = pd.DataFrame(
         {
             "f1": np.zeros(10),
@@ -35,7 +35,7 @@ def test_run_final_rollout_insufficient_data(tmp_path: Path) -> None:
 
 def test_run_final_rollout_execution(tmp_path: Path) -> None:
     """Verify final rollout execution on a synthetic dataset with train-rollout gap."""
-    dates = pd.date_range("2010-01-31", periods=100, freq="M")
+    dates = pd.date_range("2010-01-31", periods=100, freq="ME")
     df = pd.DataFrame(
         {
             "f1": np.linspace(-1.0, 1.0, 100),

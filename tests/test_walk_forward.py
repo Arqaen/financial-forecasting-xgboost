@@ -11,7 +11,7 @@ from models.src.walk_forward import run_walk_forward_evaluation
 def test_walk_forward_purging_and_embargo_geometry() -> None:
     """Verify that walk-forward validation strictly enforces purging gap and test separation."""
     # Create 60 monthly steps
-    dates = pd.date_range("2015-01-31", periods=60, freq="M")
+    dates = pd.date_range("2015-01-31", periods=60, freq="ME")
     df = pd.DataFrame(
         {
             "feat1": np.linspace(0.0, 1.0, 60),
@@ -67,7 +67,7 @@ def test_walk_forward_purging_and_embargo_geometry() -> None:
 
 def test_run_walk_forward_evaluation_execution(tmp_path: Path) -> None:
     """Verify full walk-forward execution on a small synthetic dataset."""
-    dates = pd.date_range("2015-01-31", periods=50, freq="M")
+    dates = pd.date_range("2015-01-31", periods=50, freq="ME")
     # Synthetic dataframe with features, targets, prices
     df = pd.DataFrame(
         {

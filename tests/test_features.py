@@ -17,7 +17,7 @@ from models.src.features import (
 @pytest.fixture
 def sample_monthly_dates() -> pd.DatetimeIndex:
     """Generate 40 consecutive month-end dates for testing."""
-    return pd.date_range(start="2020-01-31", periods=40, freq="M")
+    return pd.date_range(start="2020-01-31", periods=40, freq="ME")
 
 
 def test_apply_macro_release_lags_shifts_gdp_and_monthly(
@@ -171,7 +171,7 @@ def test_create_targets_forward_returns_and_lookahead_gap(
 
 def test_filter_features_by_history() -> None:
     """Verify filtering of candidate features based on non-null threshold."""
-    dates = pd.date_range("2020-01-31", periods=10, freq="M")
+    dates = pd.date_range("2020-01-31", periods=10, freq="ME")
     df = pd.DataFrame(
         {
             "good_feature_1": [1.0] * 10,
@@ -193,7 +193,7 @@ def test_filter_features_by_history() -> None:
 
 def test_prepare_modeling_dataset_end_to_end() -> None:
     """Verify full dataset preparation with date slicing, NaN filtering, and target validation."""
-    dates = pd.date_range("2015-01-31", periods=60, freq="M")
+    dates = pd.date_range("2015-01-31", periods=60, freq="ME")
     raw_df = pd.DataFrame(
         {
             "Close": np.linspace(100.0, 200.0, 60),

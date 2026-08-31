@@ -12,7 +12,7 @@ from models.src.simulation import (
 
 def test_simulate_monthly_dca_roi_controlled_values() -> None:
     """Verify DCA calculation for shares, cumulative invested, portfolio value, and ROI %."""
-    dates = pd.date_range("2020-01-31", periods=3, freq="M")
+    dates = pd.date_range("2020-01-31", periods=3, freq="ME")
     prices = pd.Series([10.0, 20.0, 20.0], index=dates)
     contributions = pd.Series([100.0, 100.0, 100.0], index=dates)
 
@@ -39,7 +39,7 @@ def test_simulate_monthly_dca_roi_controlled_values() -> None:
 
 def test_simulate_value_averaging_modified_roi() -> None:
     """Verify modified Value Averaging with bounded contributions [base, max_multiplier * base]."""
-    dates = pd.date_range("2020-01-31", periods=3, freq="M")
+    dates = pd.date_range("2020-01-31", periods=3, freq="ME")
     # Prices: 10, 5, 20
     prices = pd.Series([10.0, 5.0, 20.0], index=dates)
 
@@ -63,7 +63,7 @@ def test_simulate_value_averaging_modified_roi() -> None:
 
 def test_simulate_signal_allocation_roi() -> None:
     """Verify signal allocation allocating only on positive signal (signal > 0.5)."""
-    dates = pd.date_range("2020-01-31", periods=4, freq="M")
+    dates = pd.date_range("2020-01-31", periods=4, freq="ME")
     prices = pd.Series([10.0, 10.0, 10.0, 10.0], index=dates)
     signal = pd.Series([1, 0, 1, 0], index=dates)
 
