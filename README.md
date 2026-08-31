@@ -222,6 +222,10 @@ Evaluation Metrics Suite
     └── Strategy Exposure & Turnover Rate
 ```
 
+> [!WARNING]
+> **Known Limitations:**
+> The 36-month horizon over monthly data yields ~20 independent observations and an 82.9% base rate; reported metrics are point estimates without confidence intervals and should be read as directional, not conclusive. Feature selection was informed by full-sample analysis, so walk-forward results are optimistic.
+
 ---
 
 ### Explainable AI (XAI) via Tree SHAP

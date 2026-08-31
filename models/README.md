@@ -81,6 +81,10 @@ Beyond standard accuracy, predictions are evaluated through:
 - **Brier Score Decomposition:** $\text{Brier} = \text{Reliability} - \text{Resolution} + \text{Uncertainty}$
 - **Decile Calibration Tables & Empirical Positive Capture Curves**
 
+> [!WARNING]
+> **Known Limitations:**
+> The 36-month horizon over monthly data yields ~20 independent observations and an 82.9% base rate; reported metrics are point estimates without confidence intervals and should be read as directional, not conclusive. Feature selection was informed by full-sample analysis, so walk-forward results are optimistic.
+
 ### 5. SHAP Interpretability
 Using `TreeExplainer`, model decisions are fully explained through:
 - Global feature importance and beeswarm distributions
