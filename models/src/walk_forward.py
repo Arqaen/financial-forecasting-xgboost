@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from sklearn.metrics import (
@@ -392,8 +393,8 @@ def run_walk_forward_evaluation(
                 "% cambios de señal (pred)",
                 "Duración media long (meses)",
                 "Duración media flat (meses)",
-                "Turnover exposure (mean |ΔP|)",
-                "Turnover exposure (median |ΔP|)",
+                "Turnover exposure (mean |Delta P|)",
+                "Turnover exposure (median |Delta P|)",
             ],
         )
         save_table_figure(
@@ -582,7 +583,7 @@ def run_walk_forward_evaluation(
     pred_aligned = pred_aligned.loc[has_pred]
 
     contrib_bh = pd.Series(MONTHLY_AMOUNT, index=prices_eval.index)
-    contrib_signal = (
+    contrib_signal = pd.Series(
         MONTHLY_AMOUNT * float(SIGNAL_MULTIPLIER) * (pred_aligned.astype(int) == 1).astype(float)
     )
 

@@ -1,9 +1,11 @@
-from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
-from datetime import datetime, timedelta
-from dotenv import load_dotenv
-from airflow import DAG
 import logging
 import os
+from datetime import datetime, timedelta
+
+from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
+from dotenv import load_dotenv
+
+from airflow import DAG
 
 # Cargar variables de entorno si existe un archivo .env
 load_dotenv()

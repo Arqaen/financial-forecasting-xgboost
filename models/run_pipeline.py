@@ -1,8 +1,9 @@
 import argparse
-from pathlib import Path
 import shutil
 import sys
+from pathlib import Path
 from typing import List, Optional
+
 import pandas as pd
 
 # Ensure models/ is in sys.path when executed directly
@@ -104,7 +105,7 @@ def run_pipeline(
             shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Loading and assembling 28 market & macroeconomic series...")
+    print("Loading and assembling 28 market & macroeconomic series...")
     raw_df = load_raw_dataset()
 
     print(

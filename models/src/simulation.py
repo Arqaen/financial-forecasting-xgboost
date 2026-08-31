@@ -118,7 +118,7 @@ def simulate_signal_allocation_roi(
         DataFrame of strategy performance.
     """
     aligned_signal = signal.reindex(prices.index).fillna(0.0)
-    contributions = (
+    contributions = pd.Series(
         float(monthly_amount)
         * float(multiplier)
         * (aligned_signal.astype(float) > 0.5).astype(float)

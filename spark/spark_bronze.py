@@ -1,7 +1,8 @@
 import sys
+
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_json, col, from_unixtime, year, month, dayofmonth, hour
-from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DoubleType
+from pyspark.sql.functions import col, dayofmonth, from_json, from_unixtime, hour, month, year
+from pyspark.sql.types import DoubleType, IntegerType, StringType, StructField, StructType
 
 
 def main():

@@ -63,6 +63,10 @@ airflow/airflow.cfg
 kafka/data/
 kafka/logs/
 
+# Generated ML/Backtest artifacts & outputs
+models/metrics/
+models/backtest/
+
 # Ensure dataset files in models/data are tracked
 !models/data/
 !models/data/**

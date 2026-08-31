@@ -1,6 +1,7 @@
 """Statistical, probabilistic calibration, and financial risk metrics module."""
 
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
 import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
@@ -13,12 +14,15 @@ from sklearn.metrics import (
 )
 
 
-def binary_logloss(y_true: np.ndarray, y_proba: np.ndarray) -> float:
+def binary_logloss(
+    y_true: Union[pd.Series, np.ndarray, Sequence[Any]],
+    y_proba: Union[pd.Series, np.ndarray, Sequence[Any]],
+) -> float:
     """Calculate binary cross-entropy (log-loss) with numerical probability clamping.
 
     Args:
-        y_true: Array of binary truth labels (0 or 1).
-        y_proba: Array of predicted probabilities for class 1.
+        y_true: Array or Series of binary truth labels (0 or 1).
+        y_proba: Array or Series of predicted probabilities for class 1.
 
     Returns:
         Scalar binary log-loss value.
@@ -30,8 +34,8 @@ def binary_logloss(y_true: np.ndarray, y_proba: np.ndarray) -> float:
 
 
 def best_threshold_by_f1(
-    y_true: pd.Series,
-    y_proba: np.ndarray,
+    y_true: Union[pd.Series, np.ndarray, Sequence[Any]],
+    y_proba: Union[pd.Series, np.ndarray, Sequence[Any]],
     *,
     thresholds: Optional[np.ndarray] = None,
 ) -> Tuple[float, float]:
@@ -67,7 +71,12 @@ def best_threshold_by_f1(
     return float(best_t), float(best_f1)
 
 
-def precision_at_k(y_true: pd.Series, y_proba: np.ndarray, *, top_frac: float = 0.2) -> float:
+def precision_at_k(
+    y_true: Union[pd.Series, np.ndarray, Sequence[Any]],
+    y_proba: Union[pd.Series, np.ndarray, Sequence[Any]],
+    *,
+    top_frac: float = 0.2,
+) -> float:
     """Compute empirical precision among the top K% highest probability predictions.
 
     Args:
@@ -88,7 +97,12 @@ def precision_at_k(y_true: pd.Series, y_proba: np.ndarray, *, top_frac: float = 
     return float(y_arr[idx].mean())
 
 
-def lift_at_k(y_true: pd.Series, y_proba: np.ndarray, *, top_frac: float = 0.2) -> float:
+def lift_at_k(
+    y_true: Union[pd.Series, np.ndarray, Sequence[Any]],
+    y_proba: Union[pd.Series, np.ndarray, Sequence[Any]],
+    *,
+    top_frac: float = 0.2,
+) -> float:
     """Compute model lift (precision at top K% / baseline positive rate).
 
     Args:
@@ -111,8 +125,8 @@ def lift_at_k(y_true: pd.Series, y_proba: np.ndarray, *, top_frac: float = 0.2) 
 
 
 def confusion_matrix_by_thresholds(
-    y_true: pd.Series,
-    y_proba: np.ndarray,
+    y_true: Union[pd.Series, np.ndarray, Sequence[Any]],
+    y_proba: Union[pd.Series, np.ndarray, Sequence[Any]],
     *,
     thresholds: Tuple[float, ...] = (0.5, 0.7, 0.8),
 ) -> pd.DataFrame:
@@ -296,7 +310,6 @@ def compute_calibration_deciles_table(
         return pd.DataFrame()
 
     y_true_all = dfp[actual_col].astype(int).to_numpy()
-    y_proba_all = np.clip(dfp[proba_col].astype(float).to_numpy(), 1e-9, 1.0 - 1e-9)
     base_rate = float(np.mean(y_true_all)) if len(y_true_all) else np.nan
 
     dfp["bin"] = pd.qcut(
@@ -332,9 +345,12 @@ def compute_calibration_deciles_table(
             }
         )
 
+    if not rows:
+        return pd.DataFrame()
+
     out = pd.DataFrame(rows).sort_values("decil")
-    if out.empty:
-        return out
+    if out.empty or "decil" not in out.columns:
+        return pd.DataFrame()
 
     return out.set_index("decil")
 

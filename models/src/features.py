@@ -1,6 +1,7 @@
 """Feature engineering and target creation for financial machine learning."""
 
 from typing import List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 
@@ -275,7 +276,7 @@ def prepare_modeling_dataset(
     df = create_targets(df, horizon=horizon)
 
     # 2. Date slicing
-    df = df.loc[start_date:end_date].copy()
+    df = df.loc[slice(start_date, end_date)].copy()
 
     # 3. Filter features by valid history
     valid_features, dropped_features = filter_features_by_history(

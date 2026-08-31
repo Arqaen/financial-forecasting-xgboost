@@ -1,6 +1,7 @@
 """Time-aware hyperparameter tuning using random search and temporal validation."""
 
-from typing import Dict, List, Tuple
+from typing import Any, Dict, Tuple
+
 import numpy as np
 import pandas as pd
 from xgboost import XGBClassifier
@@ -8,7 +9,7 @@ from xgboost import XGBClassifier
 from .metrics import binary_logloss
 
 
-def sample_param_combo(param_dist: Dict[str, List], rng: np.random.RandomState) -> Dict:
+def sample_param_combo(param_dist: Dict[str, Any], rng: np.random.RandomState) -> Dict[str, Any]:
     """Sample a single random hyperparameter configuration from distributions."""
     return {key: rng.choice(values) for key, values in param_dist.items()}
 
@@ -21,11 +22,11 @@ def tune_xgb_random_search_timeval(
     X_score: pd.DataFrame,
     y_score: pd.Series,
     *,
-    fixed_params: Dict,
-    param_dist: Dict[str, List],
+    fixed_params: Dict[str, Any],
+    param_dist: Dict[str, Any],
     n_iter: int = 30,
     random_state: int = 42,
-) -> Tuple[Dict, float]:
+) -> Tuple[Dict[str, Any], float]:
     """Perform temporal random search optimizing LogLoss on an out-of-time scoring block.
 
     Prevents lookahead leakage by strictly ordering time blocks:
@@ -71,7 +72,7 @@ def tune_xgb_random_search_timeval(
 
         score_proba = model.predict_proba(X_score)[:, 1]
         score_proba = np.clip(score_proba, 1e-6, 1.0 - 1e-6)
-        score_ll = binary_logloss(y_score.values, score_proba)
+        score_ll = binary_logloss(y_score, score_proba)
 
         if score_ll < best_logloss:
             best_logloss = float(score_ll)

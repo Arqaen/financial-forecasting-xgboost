@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Dict, List, Optional
+
 import pandas as pd
 
 from .config import DATA_DIR
@@ -33,7 +34,7 @@ def load_series_csv(
         raise FileNotFoundError(f"Data file not found at: {file_path}")
 
     df = pd.read_csv(file_path, parse_dates=[date_col], index_col=date_col)
-    df = df.apply(pd.to_numeric, errors="coerce")
+    df = pd.DataFrame(df.apply(pd.to_numeric, errors="coerce"))
     df.columns = df.columns.str.strip()
 
     if index_name:
@@ -60,7 +61,7 @@ def to_monthly_last(df: pd.DataFrame) -> pd.DataFrame:
     """
     df = df.sort_index()
     df = df.resample("M").last()
-    df = df.ffill()
+    df = pd.DataFrame(df.ffill())
     return df
 
 

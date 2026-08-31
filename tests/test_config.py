@@ -1,7 +1,7 @@
 """Tests for pipeline configuration and path resolution."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Ensure repository root is in sys.path
 REPO_ROOT = Path(__file__).resolve().parent.parent

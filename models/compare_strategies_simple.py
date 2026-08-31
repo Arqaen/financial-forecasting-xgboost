@@ -140,7 +140,7 @@ def calculate_rsi(prices: pd.Series, window: int = RSI_WINDOW, adjust: bool = Fa
     rs = avg_gain / avg_loss
     rsi = 100.0 - 100.0 / (1.0 + rs)
 
-    return rsi.reindex(prices.index)
+    return pd.Series(rsi.reindex(prices.index))
 
 
 def simulate_contributions(prices: pd.Series, contributions: pd.Series) -> pd.DataFrame:

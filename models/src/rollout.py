@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 from sklearn.metrics import (
@@ -16,7 +17,6 @@ from xgboost import XGBClassifier
 
 from .config import (
     DEFAULT_HORIZON,
-    DO_RANDOM_SEARCH,
     FINAL_GAP_MONTHS,
     FINAL_ROLLOUT_MONTHS,
     FIXED_PARAMS_BASE,
@@ -291,8 +291,8 @@ def run_final_rollout(
                 "% cambios de señal (pred)",
                 "Duración media long (meses)",
                 "Duración media flat (meses)",
-                "Turnover exposure (mean |ΔP|)",
-                "Turnover exposure (median |ΔP|)",
+                "Turnover exposure (mean |Delta P|)",
+                "Turnover exposure (median |Delta P|)",
             ],
         )
         save_table_figure(
@@ -497,7 +497,7 @@ def run_final_rollout(
     pred_aligned_roll = pred_aligned_roll.loc[has_pred_roll]
 
     contrib_bh_roll = pd.Series(MONTHLY_AMOUNT, index=prices_eval_roll.index)
-    contrib_signal_roll = (
+    contrib_signal_roll = pd.Series(
         MONTHLY_AMOUNT
         * float(SIGNAL_MULTIPLIER)
         * (pred_aligned_roll.astype(int) == 1).astype(float)

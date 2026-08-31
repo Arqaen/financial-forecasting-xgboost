@@ -1,2 +1,0 @@
-start_date,end_date,interval,signal_contribution_amount,dca_total_cash,rsi_window,moving_averages,tickers_requested,tickers_ok,tickers_skipped
-2000-01-01,2026-08-31,1wk,100.0,1000.0,14,"30,50,200",29,27,2

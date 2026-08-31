@@ -1,7 +1,11 @@
 """Visualization module for financial ML diagnostics, calibration curves, scorecards, and strategy comparisons."""
 
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
+
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
@@ -173,18 +177,19 @@ def plot_spearman_rank_corr_bar(
     if s.empty:
         return
 
-    s = s.reindex(s.abs().sort_values(ascending=False).index)
+    abs_s = pd.Series(np.abs(s))
+    s = pd.Series(s.reindex(abs_s.sort_values(ascending=False).index))
     if top_n is not None:
-        s = s.head(int(top_n))
+        s = pd.Series(s.head(int(top_n)))
 
-    s = s.sort_values()
+    s = pd.Series(s.sort_values())
 
     fig_h = max(6.0, 0.22 * len(s) + 1.5)
     fig, ax = plt.subplots(figsize=(10.5, fig_h))
     ax.barh(s.index.astype(str), s.values, color="tab:blue", alpha=0.85)
     ax.axvline(0, color="grey", lw=1, alpha=0.7)
     ax.set_title(title)
-    ax.set_xlabel("Spearman ρ")
+    ax.set_xlabel("Spearman rho")
     ax.grid(True, axis="x", alpha=0.25)
     fig.tight_layout()
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -507,7 +512,7 @@ def plot_metrics_by_proba_bin(
         duplicates="drop",
     )
 
-    rows = []
+    rows: List[Dict[str, Any]] = []
     for b, g in dfp.groupby("bin"):
         y_true = g[actual_col].astype(int).to_numpy()
         n = int(len(g))
@@ -515,14 +520,18 @@ def plot_metrics_by_proba_bin(
         emp_rate = float(np.mean(y_true)) if n > 0 else np.nan
         rows.append({"bin": int(b), "n": n, "mean_proba": mean_proba, "empirical_rate": emp_rate})
 
+    if not rows:
+        return
     mdf = pd.DataFrame(rows).sort_values("bin")
+    if mdf.empty or "bin" not in mdf.columns:
+        return
 
     fig, ax = plt.subplots(figsize=(9.0, 4.6))
     ax.plot(mdf["bin"], mdf["empirical_rate"], marker="o", lw=1.8, label="P(real=1) por bin")
     ax.plot(mdf["bin"], mdf["mean_proba"], marker="o", lw=1.8, label="Mean P(sube) por bin")
 
     ax.set_title(title)
-    ax.set_xlabel("Decil de P(sube) (bajo → alto)")
+    ax.set_xlabel("Decil de P(sube) (bajo -> alto)")
     ax.set_ylabel("Probabilidad")
     ax.set_ylim(0.0, 1.05)
     ax.grid(True, alpha=0.25)
@@ -860,7 +869,7 @@ def plot_decile_accuracy(
     fig, ax = plt.subplots(figsize=(8, 4))
     deciles.plot(kind="bar", ax=ax, color="tab:blue")
     ax.set_title(title)
-    ax.set_xlabel("Decil P(sube) (bajo → alto)")
+    ax.set_xlabel("Decil P(sube) (bajo -> alto)")
     ax.set_ylabel("P(real=1)")
     plt.tight_layout()
     out_path.parent.mkdir(parents=True, exist_ok=True)

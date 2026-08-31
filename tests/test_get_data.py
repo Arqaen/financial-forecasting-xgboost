@@ -1,7 +1,8 @@
 """Tests for get_data acquisition and path resolution."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
+
 import pytest
 
 pytest.importorskip("pandas")

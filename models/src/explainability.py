@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -16,7 +17,6 @@ except ImportError:
 
 from .config import (
     DEFAULT_HORIZON,
-    DO_RANDOM_SEARCH,
     FINAL_FIXED_PARAMS,
     MANUAL_PARAMS_BASE,
     METRICS_DIR,
@@ -64,7 +64,7 @@ def train_final_model_and_explain(
 
     # In-sample Diagnostics
     final_proba_all = final_model.predict_proba(X)[:, 1]
-    final_logloss = float(binary_logloss(y.values, final_proba_all))
+    final_logloss = float(binary_logloss(y, final_proba_all))
     final_brier = float(brier_score_loss(y, final_proba_all))
     final_precision_top20 = precision_at_k(y, final_proba_all, top_frac=0.2)
     final_auc = float(roc_auc_score(y, final_proba_all)) if len(np.unique(y)) > 1 else float("nan")

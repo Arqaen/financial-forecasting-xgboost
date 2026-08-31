@@ -60,7 +60,7 @@ where = ["."]
 include = ["models*", "spark*"]
 
 [tool.pytest.ini_options]
-minversion = "8.0"
+minversion = "7.0"
 addopts = "-ra -q --strict-markers"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
@@ -81,3 +81,34 @@ warn_unused_configs = true
 disallow_untyped_defs = false
 ignore_missing_imports = true
 explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = [
+    "models.src.config",
+    "models.src.data_loader",
+    "models.src.features",
+    "models.src.metrics",
+    "models.src.explainability",
+    "models.src.rollout",
+]
+disallow_untyped_defs = true
+
+[tool.coverage.run]
+source = ["models/src"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]
+show_missing = true
+
+

@@ -1,12 +1,12 @@
 """Data acquisition and preprocessing utilities for market and macroeconomic time series."""
 
 import argparse
-from datetime import datetime
 import logging
-from pathlib import Path
-import sys
-from typing import Dict, List, Optional
 import urllib.request
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional
+
 import pandas as pd
 import yfinance as yf
 
