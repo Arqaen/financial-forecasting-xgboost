@@ -1,3 +1,4 @@
+import sys
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     from_json, col, from_unixtime,
@@ -7,47 +8,52 @@ from pyspark.sql.types import (
     StructType, StructField,
     IntegerType, StringType, DoubleType
 )
-import sys
 
 
 def main():
     spark = (
         SparkSession.builder
-        .appName("KafkaToBronzeBatch")
+        .appName("KafkaToBronzeStructuredStreaming")
         .config("spark.sql.catalogImplementation", "in-memory")
         .getOrCreate()
     )
 
     spark.sparkContext.setLogLevel("WARN")
 
-    # ===== Ventana temporal =====
-    window_start = int(spark.conf.get("spark.bronze.window.start"))
-    window_end = int(spark.conf.get("spark.bronze.window.end"))
+    # ===== Configuración =====
+    bootstrap_servers = spark.conf.get("spark.kafka.bootstrap.servers", "kafka:9092")
+    topic = spark.conf.get("spark.kafka.topic", "events")
+    starting_offsets = spark.conf.get("spark.kafka.startingOffsets", "earliest")
+    checkpoint_location = spark.conf.get(
+        "spark.bronze.checkpoint.location",
+        "s3a://bronze/checkpoints/eventos_batch"
+    )
+    output_path = spark.conf.get(
+        "spark.bronze.output.path",
+        "s3a://bronze/eventos_batch"
+    )
 
-    print(f"Processing window: {window_start} → {window_end}")
+    print(f"Reading from Kafka: {bootstrap_servers} (topic: {topic})")
+    print(f"Checkpoint location: {checkpoint_location}")
+    print(f"Output path: {output_path}")
 
     # ===== Esquema =====
     schema = StructType([
-        StructField("user_id", IntegerType()),
-        StructField("product", StringType()),
-        StructField("price", DoubleType()),
-        StructField("timestamp", DoubleType()),  # epoch seconds
+        StructField("user_id", IntegerType(), True),
+        StructField("product", StringType(), True),
+        StructField("price", DoubleType(), True),
+        StructField("timestamp", DoubleType(), True),  # epoch seconds
     ])
 
-    # ===== Kafka BATCH =====
+    # ===== Kafka Structured Streaming Source =====
+    # Nota: startingOffsets aplica solo en la primera ejecución si no existe checkpoint.
+    # En ejecuciones posteriores, Spark lee automáticamente desde el último offset confirmado en el checkpoint.
     df_kafka = (
-        spark.read
+        spark.readStream
         .format("kafka")
-        .option(
-            "kafka.bootstrap.servers",
-            spark.conf.get("spark.kafka.bootstrap.servers")
-        )
-        .option(
-            "subscribe",
-            spark.conf.get("spark.kafka.topic")
-        )
-        .option("startingOffsets", "earliest")
-        .option("endingOffsets", "latest")
+        .option("kafka.bootstrap.servers", bootstrap_servers)
+        .option("subscribe", topic)
+        .option("startingOffsets", starting_offsets)
         .option("failOnDataLoss", "false")
         .load()
     )
@@ -55,33 +61,17 @@ def main():
     # ===== Parse JSON =====
     df = (
         df_kafka
-        .selectExpr("CAST(value AS STRING)")
-        .select(from_json(col("value"), schema).alias("data"))
+        .selectExpr("CAST(value AS STRING) AS json_payload")
+        .select(from_json(col("json_payload"), schema).alias("data"))
         .select("data.*")
     )
 
-    # ===== Timestamp =====
+    # ===== Timestamp y Particiones =====
     df = df.withColumn(
         "event_time",
         from_unixtime(col("timestamp"))
     )
 
-    # ===== Ventana Airflow =====
-    df = df.filter(
-        (col("timestamp") * 1000 >= window_start) &
-        (col("timestamp") * 1000 < window_end)
-    )
-
-    # ===== Contar UNA vez =====
-    rows = df.count()
-    print(f"Rows in window: {rows}")
-
-    # if rows == 0:
-    #     print("No data for this window")
-    #     spark.stop()
-    #     sys.exit(0)
-
-    # ===== Particiones =====
     df = (
         df
         .withColumn("year", year("event_time"))
@@ -90,13 +80,22 @@ def main():
         .withColumn("hour", hour("event_time"))
     )
 
-    # ===== Escritura =====
-    (
-        df.write
-        .mode("append")
+    # ===== Escritura con Checkpoint y Trigger AvailableNow =====
+    # trigger(availableNow=True) procesa todos los datos disponibles en micro-batches y termina.
+    # El checkpoint garantiza exactamente-una-vez (idempotencia en reintentos) y evita reprocesar el topic entero.
+    query = (
+        df.writeStream
+        .format("parquet")
+        .outputMode("append")
+        .option("checkpointLocation", checkpoint_location)
+        .option("path", output_path)
         .partitionBy("year", "month", "day", "hour")
-        .parquet("s3a://bronze/eventos_batch")
+        .trigger(availableNow=True)
+        .start()
     )
+
+    query.awaitTermination()
+    print("Bronze Structured Streaming batch ingestion completed successfully.")
 
     spark.stop()
     sys.exit(0)
@@ -106,6 +105,6 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print("Spark job failed:")
-        print(e)
+        print("Spark job failed:", file=sys.stderr)
+        print(e, file=sys.stderr)
         sys.exit(1)

@@ -2,11 +2,40 @@ from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOpe
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from airflow import DAG
+import logging
 import os
 
-MINIO_USER = os.getenv("MINIO_ROOT_USER")
-MINIO_PASS = os.getenv("MINIO_ROOT_PASSWORD")
-WINDOW = os.getenv("WINDOW")
+# Cargar variables de entorno si existe un archivo .env
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_WINDOW_MINUTES = 5
+
+def _get_window_minutes() -> int:
+    raw_window = os.getenv("WINDOW")
+    if raw_window is None or not str(raw_window).strip():
+        return DEFAULT_WINDOW_MINUTES
+    try:
+        val = int(raw_window)
+        if 1 <= val <= 59:
+            return val
+        logger.warning(
+            "WINDOW value %d is out of valid range (1-59). Falling back to %d.",
+            val,
+            DEFAULT_WINDOW_MINUTES,
+        )
+    except ValueError:
+        logger.warning(
+            "Invalid WINDOW value '%s'. Falling back to default %d.",
+            raw_window,
+            DEFAULT_WINDOW_MINUTES,
+        )
+    return DEFAULT_WINDOW_MINUTES
+
+MINIO_USER = os.getenv("MINIO_ROOT_USER", "minioadmin")
+MINIO_PASS = os.getenv("MINIO_ROOT_PASSWORD", "minioadmin")
+WINDOW = _get_window_minutes()
 
 default_args = {
     "owner": "data-platform",
@@ -34,20 +63,20 @@ with DAG(
         name="bronze-kafka-to-minio",
         verbose=True,
         execution_timeout=timedelta(minutes=10),
-        retries=0,
+        retries=1,
         conf={
             # ===== Spark =====
             # "spark.master": "spark://spark-master:7077",
             "spark.sql.shuffle.partitions": "4",
 
-            # ===== Ventana Airflow → Spark =====
-            "spark.bronze.window.start": "{{ logical_date.int_timestamp * 1000 }}",
-            "spark.bronze.window.end": "{{ (logical_date + macros.timedelta(minutes=" + str(WINDOW) + ")).int_timestamp * 1000 }}",
-
-
             # ===== Kafka =====
             "spark.kafka.bootstrap.servers": "kafka:9092",
             "spark.kafka.topic": "events",
+            "spark.kafka.startingOffsets": "earliest",
+
+            # ===== Bronze Checkpoint & Storage =====
+            "spark.bronze.checkpoint.location": "s3a://bronze/checkpoints/eventos_batch",
+            "spark.bronze.output.path": "s3a://bronze/eventos_batch",
 
             # ===== MinIO / S3A =====
             "spark.hadoop.fs.s3a.endpoint": "http://minio1:9000",

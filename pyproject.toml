@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "data-pipeline-management"
+version = "0.1.0"
+description = "Time-aware quantitative machine learning pipeline for macroeconomic regime forecasting and financial market directional prediction."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Arqaen" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+dependencies = [
+    "numpy>=1.24.3,<2.2.0",
+    "pandas>=2.0.3,<2.3.0",
+    "scipy>=1.11.0,<1.15.0",
+    "scikit-learn>=1.3.2,<1.6.0",
+    "xgboost>=2.0.3,<2.2.0",
+    "shap>=0.44.1,<0.47.0",
+    "matplotlib>=3.7.5,<3.10.0",
+    "seaborn>=0.12.2,<0.14.0",
+    "yfinance>=0.2.36",
+    "xlrd>=2.0.1",
+    "openpyxl>=3.1.2",
+    "requests>=2.31.0",
+    "cloudscraper>=1.2.71",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0,<9.0.0",
+    "pytest-cov>=4.1.0",
+    "black>=24.0.0",
+    "flake8>=7.0.0",
+    "mypy>=1.9.0",
+    "isort>=5.13.0",
+]
+lakehouse = [
+    "pyspark>=3.5.0",
+    "kafka-python>=2.0.2",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["models*", "spark*"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --strict-markers"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false

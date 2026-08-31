@@ -1,36 +1,68 @@
-test.*
-test
-*.txt
+# Byte-compiled / optimized / DLL files
 __pycache__/
-venv/
-.env
+*.py[cod]
+*$py.class
+*.so
+
+# Caches and temporary files
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+tmp/
+logs/
 *.log
-*.png
-logs
-tmp
-raw/*.csv
-*.xls
-*.xlsx
-data/*
-*.csv
-metrics/*
-spark-warehouse/
-metastore_db/
+test/
+test.*
+
+# Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+docker/**/.env
+
+# OS / Editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Data Lakehouse runtime storage & volumes (Root & Docker mounts)
+/data/
+/warehouse/
+/bronze/
+/silver/
+/gold/
+/minio/
+/raw/
+/spark-warehouse/
+/metastore_db/
+/trino/data/
+docker/**/data/
+docker/**/logs/
+docker/**/volumes/
+
+# Service runtime data & logs
 airflow/logs/
 airflow/*.db
 airflow/airflow.cfg
 kafka/data/
 kafka/logs/
-data/
-warehouse/
-bronze/
-silver/
-gold/
-minio/data/
-docker/**/data/
-docker/**/logs/
-docker/**/volumes/
-docker/**/.env
-trino/data/
-*.md
-!README.md
+
+# Ensure dataset files in models/data are tracked
+!models/data/
+!models/data/**

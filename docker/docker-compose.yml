@@ -2,15 +2,15 @@ services:
   postgres:
     image: postgres:14
     environment:
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
-      POSTGRES_DB: airflow
+      POSTGRES_USER: ${POSTGRES_USER:-airflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-airflow}
+      POSTGRES_DB: ${POSTGRES_DB:-airflow}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - dataplatform
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-airflow} -d ${POSTGRES_DB:-airflow}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -31,15 +31,15 @@ services:
       AIRFLOW__CORE__HOSTNAME_CALLABLE: airflow.utils.net.get_host_ip_address
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres/${POSTGRES_DB:-airflow}
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "${AIRFLOW_USERNAME}:admin"
       AIRFLOW__DAG_PROCESSOR__DAG_DIR_LIST_INTERVAL: "300"
       AIRFLOW__LOGGING__WORKER_LOG_SERVER_HOSTNAME: localhost
       AIRFLOW__LOGGING__WORKER_LOG_SERVER_PORT: "8793"
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      WINDOW: ${WINDOW}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      WINDOW: ${WINDOW:-5}
     volumes:
       - ../airflow/dags:/opt/airflow/dags
       - ../spark:/opt/spark-apps
@@ -67,7 +67,7 @@ services:
       AIRFLOW__CORE__HOSTNAME_CALLABLE: airflow.utils.net.get_host_ip_address
       AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres/${POSTGRES_DB:-airflow}
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "${AIRFLOW_USERNAME}:admin"
       AIRFLOW__DAG_PROCESSOR__DAG_DIR_LIST_INTERVAL: "300"
       AIRFLOW__LOGGING__WORKER_LOG_SERVER_HOSTNAME: localhost
@@ -309,19 +309,9 @@ services:
       mc mb --with-lock --with-versioning local/bronze;
       mc mb --with-versioning local/silver;
       mc mb --with-versioning local/gold;
-      mc anonymous set public local/bronze
       "
     networks:
       - dataplatform
-
-  # minio-init:
-  #   build: 
-  #     dockerfile: ./buckets/Dockerfile
-  #     context: .
-  #   depends_on:
-  #     - kafka
-  #   networks:
-  #     - dataplatform
 
 volumes:
   postgres_data:

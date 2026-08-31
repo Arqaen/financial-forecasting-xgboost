@@ -37,5 +37,6 @@ RUN curl -L -o /opt/spark/jars/hadoop-aws-3.3.4.jar \
 USER airflow
 
 RUN pip install --no-cache-dir \
-    apache-airflow-providers-apache-spark
+    apache-airflow-providers-apache-spark \
+    python-dotenv
 

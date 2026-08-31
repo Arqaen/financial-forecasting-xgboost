@@ -58,13 +58,16 @@ def tune_xgb_random_search_timeval(
         model_params.update(params)
 
         model = XGBClassifier(**model_params)
-        model.fit(
-            X_tr,
-            y_tr,
-            eval_set=[(X_es, y_es)],
-            verbose=False,
-            early_stopping_rounds=model_params.get("early_stopping_rounds", 100),
-        )
+        if len(np.unique(y_es)) < 2:
+            model.set_params(early_stopping_rounds=None)
+            model.fit(X_tr, y_tr, verbose=False)
+        else:
+            model.fit(
+                X_tr,
+                y_tr,
+                eval_set=[(X_es, y_es)],
+                verbose=False,
+            )
 
         score_proba = model.predict_proba(X_score)[:, 1]
         score_proba = np.clip(score_proba, 1e-6, 1.0 - 1e-6)

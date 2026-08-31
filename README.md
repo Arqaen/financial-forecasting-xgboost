@@ -335,17 +335,13 @@ Separating the research engine from the distributed lakehouse allows:
 │
 ├── spark/                            # ⚙️ DATA ENGINEERING PoC: Distributed Processing
 │   ├── spark_bronze.py               # Kafka-to-MinIO Bronze Parquet batch processing job
-│   ├── spark_silver.py               # Silver layer scaffolding
-│   ├── spark_gold.py                 # Gold layer scaffolding
 │   └── spark-defaults.conf           # Spark S3A / MinIO connector configuration
 │
 ├── docker/                           # 🐳 Container Infrastructure
 │   ├── docker-compose.yml            # Multi-container orchestration (Airflow, Spark, Kafka, MinIO)
 │   ├── airflow/                      # Custom Airflow Docker image
-│   ├── producer/                     # Custom Kafka producer container
-│   └── buckets/                      # MinIO automated bucket initialization
+│   └── producer/                     # Custom Kafka producer container
 │
-├── sql/                              # MinIO & database initialization scripts
 ├── .env.example                      # Template for environment variables
 └── README.md                         # Main repository documentation
 ```
