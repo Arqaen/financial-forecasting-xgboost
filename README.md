@@ -1,224 +1,490 @@
-# Data Engineering & Financial ML Platform
+# Financial time series forecasting with XGBoost
 
-![Status](https://img.shields.io/badge/status-active%20development-orange)
-![Orchestration](https://img.shields.io/badge/orchestration-Apache%20Airflow-017CEE)
-![Processing](https://img.shields.io/badge/processing-Apache%20Spark-E25A1C)
-![Streaming](https://img.shields.io/badge/streaming-Apache%20Kafka-231F20)
-![Storage](https://img.shields.io/badge/storage-MinIO-C72E49)
-![ML](https://img.shields.io/badge/ML-XGBoost%20%2B%20SHAP-189AB4)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)
+![Machine Learning](https://img.shields.io/badge/ML-XGBoost%20%7C%20SHAP-189AB4?logo=scikitlearn&logoColor=white)
+![Validation](https://img.shields.io/badge/validation-Purged%20Walk--Forward-success)
+![Data Engineering](https://img.shields.io/badge/data%20engineering-Kafka%20%7C%20Spark%20%7C%20Airflow-orange)
+![Storage](https://img.shields.io/badge/lakehouse-MinIO%20(Parquet)-C72E49?logo=minio&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-A **Proof of Concept (PoC)** platform combining **data engineering** and **applied financial machine learning** across two decoupled architectural modules:
-1. A containerised Lakehouse data pipeline (Kafka, Spark, MinIO, Airflow) for synthetic streaming event ingestion and Bronze-layer partitioning.
-2. An independent quantitative research & ML engine (XGBoost, SHAP) with temporal walk-forward validation and macroeconomic regime forecasting.
+A rigorous, time-aware quantitative machine learning framework designed to forecast long-term macroeconomic regimes and directional trends for the **S&P 500 index**. The platform integrates multi-source macroeconomic and valuation signals, prevents lookahead bias via publication release lags, enforces purged walk-forward temporal cross-validation, and provides granular model explainability through SHAP.
 
-> **Project Nature & Scope:** Built as an academic Proof of Concept (TFG) for learning, experimentation, and portfolio demonstration. The data engineering infrastructure and ML research engine are designed as modular, decoupled systems to study each domain in depth before unified end-to-end integration. It is not production infrastructure or financial advice.
+Additionally, the repository features an exploratory **Data Engineering Proof of Concept (PoC)** demonstrating containerized, distributed streaming ingestion and lakehouse storage (Kafka, Spark, Airflow, MinIO).
 
-## What this project demonstrates
+---
 
-| Data Engineering | Data Science & ML |
-| --- | --- |
-| Containerised local infrastructure with Docker Compose | Financial and macroeconomic data preparation |
-| Event ingestion and buffering with Apache Kafka | Feature engineering for time-series classification |
-| Workflow orchestration with Apache Airflow | Chronological walk-forward validation |
-| Distributed processing with Apache Spark | XGBoost modelling and calibration analysis |
-| S3-compatible, partitioned Parquet storage in MinIO | SHAP-based model explainability |
-| Bronze/Silver/Gold lakehouse design | Strategy simulation and risk/turnover metrics |
+## Table of Contents
 
-## Architecture and workflows
+- [Core Analytical Focus: Financial Machine Learning](#core-analytical-focus-financial-machine-learning)
+  - [Quantitative Problem Formulation](#quantitative-problem-formulation)
+  - [Macroeconomic & Market Data Engine](#macroeconomic--market-data-engine)
+  - [Zero Lookahead Bias & Publication Release Lags](#zero-lookahead-bias--publication-release-lags)
+  - [Feature Engineering Taxonomy](#feature-engineering-taxonomy)
+- [Modeling & Validation Architecture](#modeling--validation-architecture)
+  - [Target Variable Construction](#target-variable-construction)
+  - [Purged Walk-Forward Cross-Validation & Temporal Embargo](#purged-walk-forward-cross-validation--temporal-embargo)
+  - [XGBoost Optimization & Dynamic Threshold Tuning](#xgboost-optimization--dynamic-threshold-tuning)
+  - [Probabilistic Calibration & Evaluation Metrics](#probabilistic-calibration--evaluation-metrics)
+  - [Explainable AI (XAI) via Tree SHAP](#explainable-ai-xai-via-tree-shap)
+- [Quantitative Strategy Simulation & Benchmarking](#quantitative-strategy-simulation--benchmarking)
+- [Data Engineering Proof of Concept (PoC)](#data-engineering-proof-of-concept-poc)
+  - [Streaming & Lakehouse Ingestion Pipeline](#streaming--lakehouse-ingestion-pipeline)
+  - [Decoupled Architecture Rationale](#decoupled-architecture-rationale)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [How to Run](#how-to-run)
+  - [1. Quantitative ML Research Pipeline](#1-quantitative-ml-research-pipeline)
+  - [2. Data Engineering Infrastructure (PoC)](#2-data-engineering-infrastructure-poc)
+- [Research Artifacts & Diagnostic Outputs](#research-artifacts--diagnostic-outputs)
+- [Roadmap](#roadmap)
+- [License & Disclaimer](#license--disclaimer)
 
-The repository contains two complementary but operationally independent workstreams.
+---
 
-### 1. Data engineering platform
+## Core Analytical Focus: Financial Machine Learning
+
+```mermaid
+flowchart TD
+    subgraph Ingestion["1. Multi-Source Financial Ingestion"]
+        A[Market Prices: S&P 500, VIX, DXY] --> C[Monthly Alignment: to_monthly_last]
+        B[Macro Data: FRED, Shiller P/E, Spreads] --> C
+    end
+
+    subgraph FeatureEng["2. Feature Engineering & Bias Prevention"]
+        C --> D[Publication Release Lags: GDP +3m, Monthly +1m]
+        D --> E[Valuation Ratios: ERP, Shiller CAPE, Earnings Yield]
+        D --> F[Macro Dynamics: Liquidity Impulse, Yield Slopes, Credit Stress]
+        D --> G[Technical Indicators: Horizon-Scaled EMAs, RSI, ROC]
+    end
+
+    subgraph Modeling["3. Time-Aware Machine Learning Engine"]
+        E & F & G --> H[Forward Target Labelling: Multi-Month Horizon]
+        H --> I[Purged Walk-Forward CV: 20y Train / 1y Test / Embargo]
+        I --> J[XGBoost Classifier: Hist Tree Method]
+        J --> K[Dynamic F1 Threshold Optimization]
+    end
+
+    subgraph Diagnostics["4. Diagnostics, Interpretability & Strategy"]
+        K --> L[Probabilistic Calibration: ECE & Brier Decomposition]
+        K --> M[SHAP Explainability: Global Beeswarm, Interactions & Waterfall]
+        K --> N[Strategy Backtests: DCA vs Value Averaging vs ML Signal]
+    end
+```
+
+### Quantitative Problem Formulation
+
+Financial time series exhibit non-stationarity, regime shifts, and low signal-to-noise ratios. Standard short-term predictive setups often degenerate into noise fitting. 
+
+This project formulates market directional forecasting as a **macroeconomic regime classification task** over a medium-to-long-term forecast horizon (default: **36 months** / 3 years). By modeling the fundamental macroeconomic cycle—monetary liquidity, credit spreads, real interest rates, and structural equity valuations—the objective is to estimate the conditional probability:
+
+$$\mathbb{P}\left(\text{Close}_{t+h} > \text{Close}_t \mid \mathcal{F}_t\right)$$
+
+where $\mathcal{F}_t$ represents the information filtration available at calendar time $t$ without future leakage.
+
+---
+
+### Macroeconomic & Market Data Engine
+
+The ML engine integrates 28+ monthly and quarterly macroeconomic, monetary, credit, and market series spanning over 70 years of historical data:
+
+| Domain | Series & Indicators | Analytical Significance |
+| :--- | :--- | :--- |
+| **Broad Market** | S&P 500 (`Close`), VIX (`VIX_Close`), US Dollar Index (`DXY`) | Equity trend, volatility regime, currency pressure |
+| **Valuation** | S&P 500 P/E Ratio, Shiller CAPE Ratio | Mean-reversion baselines and structural over/undervaluation |
+| **Economic Growth** | Real GDP (`GDPC1`), Unemployment Rate (`UNRATE`), Total Vehicle Sales (`TOTALSA`) | Macro cycle phase identification and recession tracking |
+| **Monetary & Liquidity** | M2 Money Supply (`M2SL`), Fed Balance Sheet (`WALCL`), Effective Fed Funds Rate (`FEDFUNDS`) | Central bank liquidity expansion/contraction cycles |
+| **Interest Rates & Yields** | 10Y Treasury Yield (`DGS10`), 10Y-3M Spread (`T10Y3M`), 10Y-2Y Spread (`T10Y2Y`), 10Y TIPS (`DFII10`) | Yield curve inversions, term premia, real discount rates |
+| **Inflation Expectations** | 10Y Breakeven Inflation (`T10YIE`), Atlanta Fed Sticky CPI (`CORESTICKM159SFRBATL`) | Long-term inflation pricing and structural inflation regimes |
+| **Credit & Risk Premia** | Moody's Baa/Aaa Spreads (`BAA`, `AAA`), High Yield Spreads (`BAMLH0A0HYM2`), Chicago Fed NFCI | Corporate default risk, market stress, and credit contraction |
+| **Housing & Leading Indicators** | Building Permits (`PERMIT`), Housing Starts (`HOUST`), Leading Index (`USSLIND`) | Early-cycle macroeconomic leading activity |
+
+---
+
+### Zero Lookahead Bias & Publication Release Lags
+
+A critical failure mode in academic and financial machine learning is **lookahead bias** (*data leakage*): training models with economic data timestamped on reference dates rather than when the data was actually published to market participants.
+
+To guarantee zero lookahead bias, this framework enforces strict **publication release lags** before feature calculation:
+
+- **Quarterly GDP (`GDPC1`):** Shifted by $+3$ months (quarterly reporting and revision delay).
+- **Monthly Indicators (`UNRATE`, `PERMIT`, `M2SL`, `HOUST`, `TOTALSA`, `WALCL`, `CORESTICKM159SFRBATL`):** Shifted by $+1$ month.
+- **Historical Coverage Filtering:** Features are verified against a minimum non-null history ratio (`MIN_HISTORY_RATIO = 0.6`) to avoid survivorship bias and artificial imputation artifacts.
+
+---
+
+### Feature Engineering Taxonomy
+
+The feature engine transforms raw series into horizon-adapted, economically grounded predictors across five key domains:
+
+```text
+Feature Engineering Pipeline
+├── 1. Valuation & Risk Premia
+│   ├── Equity Risk Premium (ERP):  ERP = (1 / P/E) - 10Y Treasury Yield
+│   ├── S&P 500 Earnings Yield:     EY = 1 / P/E
+│   ├── CAPE Earnings Yield:        CAPE_EY = 1 / CAPE
+│   └── Value-Momentum Interaction: EY * Rate_of_Change(h)
+│
+├── 2. Monetary & Liquidity Dynamics
+│   ├── M2 Year-over-Year Growth:   M2_YoY = pct_change(M2, 12)
+│   ├── Liquidity Impulse:          M2_YoY - GDP_YoY
+│   ├── Central Bank Balance Trend: pct_change(WALCL, 6) - pct_change(WALCL, 12)
+│   └── Fed Funds 3-Month Change:   diff(FEDFUNDS, 3)
+│
+├── 3. Credit Stress & Yield Curves
+│   ├── Corporate Credit Spread:    BAA - AAA
+│   ├── High-Yield Spread Momentum: diff(BAMLH0A0HYM2, 3)
+│   ├── Credit Impulse & Stress:    -diff(HY_Spread, 12) / diff(HY_Spread, 6)
+│   ├── Yield Curve Slopes:         10Y Yield - 3M T-Bill (T10Y3M) / 10Y-2Y
+│   └── Real Interest Rate:         10Y TIPS - Sticky CPI Core
+│
+├── 4. Volatility & Sentiment
+│   ├── VIX Level & 3-Month Trend:  pct_change(VIX, 3)
+│   ├── VIX 12-Month Rolling Z-Score: (VIX - MA12(VIX)) / STD12(VIX)
+│   └── Volatility Regime Ratio:    VIX / MA12(VIX)
+│
+└── 5. Horizon-Scaled Technical Momentum
+    ├── Adaptive EMAs:              EMA(short=h/2), EMA(mid=h), EMA(long=2*h)
+    ├── EMA Distance & Spreads:     Close / EMA(mid) - 1.0, EMA(short) / EMA(long) - 1.0
+    ├── 14-Month Rolling RSI:       Relative Strength Index on monthly close
+    ├── Horizon Rate of Change:     ROC(h) = (Close_t / Close_{t-h}) - 1.0
+    └── 12-Month Rolling Drawdown:  Close_t / max(Close_{t-12..t}) - 1.0
+```
+
+---
+
+## Modeling & Validation Architecture
+
+### Target Variable Construction
+
+For a given prediction horizon $h$ (e.g., $h = 36$ months):
+- **Continuous Log-Return (Regression Target):**
+  $$y_{\text{reg}, t} = \ln\left(\frac{\text{Close}_{t+h}}{\text{Close}_t}\right)$$
+- **Binary Directional Label (Classification Target):**
+  $$y_{\text{cls}, t} = \mathbb{I}\left(\text{Close}_{t+h} > \text{Close}_t\right) = \begin{cases} 1 & \text{if forward return} > 0 \\ 0 & \text{otherwise} \end{cases}$$
+
+All target calculations are strictly excluded from the feature space during model training.
+
+---
+
+### Purged Walk-Forward Cross-Validation & Temporal Embargo
+
+Standard $K$-Fold cross-validation is fundamentally flawed for financial time series: it randomly samples observations, inducing lookahead bias and serial correlation leakage. When predicting multi-step forward returns ($h > 1$), overlapping label windows introduce severe dependency between adjacent samples.
+
+To address this, this framework implements **Purged Walk-Forward Temporal Cross-Validation with Embargo**:
+
+```text
+Time Axis ──────────────────────────────────────────────────────────────────────────►
+Fold 1: [==== Training History (20+ Years) ====][-- Purge/Embargo --][ Test Fold (1 Year) ]
+Fold 2: [====== Expanding Training History ======][-- Purge/Embargo --][ Test Fold (1 Year) ]
+Fold N: [======== Expanding Training History ========][-- Purge/Embargo --][ Test Fold (1 Year) ]
+Final:  [================ Full Historical Training ================][-- Gap --][ Final Rollout (10 Years) ]
+```
+
+1. **Expanding Window Training:** Minimum initial training history of 240 months (20 years) to capture multiple macroeconomic cycles.
+2. **Purging & Embargo:** Observations within the overlapping $h$-month forward window are purged before the evaluation fold.
+3. **Internal Temporal Validation:** Each training split isolates its last 20% chronologically for:
+   - Early stopping regularization (`early_stopping_rounds = 100`).
+   - Out-of-fold optimal classification threshold calibration.
+4. **10-Year Out-of-Sample Final Rollout:** An isolated 120-month final testing block separated by a 36-month embargo gap evaluates real-world regime stability and out-of-sample degradation.
+
+---
+
+### XGBoost Optimization & Dynamic Threshold Tuning
+
+- **Base Estimator:** `XGBClassifier` with histogram-based tree splitting (`tree_method = "hist"`), log-loss objective (`binary:logistic`), and tree depth limits to prevent overfitting.
+- **Regularization:** L1 penalty (`reg_alpha`), L2 penalty (`reg_lambda`), conservative learning rates ($\eta \in [0.03, 0.07]$), and sub-sampling ratios (`subsample = 0.9`, `colsample_bytree = 0.8`).
+- **Dynamic Decision Threshold ($p^*$):** Instead of assuming a naive $p = 0.5$ classification cutoff, the engine searches for the threshold $p^* \in [0.20, 0.80]$ that maximizes the $F_1$-score on internal temporal validation data, preventing class-imbalance distortion.
+
+---
+
+### Probabilistic Calibration & Evaluation Metrics
+
+Model performance is evaluated using both probabilistic and financial criteria:
+
+```text
+Evaluation Metrics Suite
+├── 1. Probabilistic Calibration
+│   ├── Expected Calibration Error (ECE)
+│   ├── Brier Score Decomposition: Brier = Reliability - Resolution + Uncertainty
+│   └── Decile Calibration Curves & Quantile Reliability Tables
+│
+├── 2. Classification & Discrimination
+│   ├── ROC-AUC & Precision-Recall AUC (PR-AUC)
+│   ├── Macro / Weighted / Directional F1-Score
+│   ├── Balanced Accuracy & Matthews Correlation Coefficient (MCC)
+│   └── Lift@K and Precision@Top Deciles
+│
+└── 3. Financial & Investment Metrics
+    ├── Compound Annual Growth Rate (CAGR)
+    ├── Annualized Volatility & Sharpe Ratio
+    ├── Maximum Drawdown (MDD) & Calmar Ratio
+    └── Strategy Exposure & Turnover Rate
+```
+
+---
+
+### Explainable AI (XAI) via Tree SHAP
+
+To prevent the model from operating as a black box, the framework uses `shap.TreeExplainer` for end-to-end interpretability:
+
+- **Global Feature Importance:** Mean absolute SHAP values ($E[|\phi_i|]$) revealing dominant macroeconomic drivers over 70+ years.
+- **SHAP Beeswarm Distributions:** Directional impact of features (e.g., how high credit spreads or contracting M2 decrease positive return probabilities).
+- **Non-Linear Interactions:** Automatic pair-wise interaction analysis (e.g., Equity Risk Premium conditioned on real interest rates).
+- **Local Waterfall Decompositions:** Single-observation breakdown for the most recent market regime, visualizing the contribution of each live economic variable to the latest prediction.
+
+---
+
+## Quantitative Strategy Simulation & Benchmarking
+
+The ML model's probabilistic outputs are translated into continuous allocation signals and benchmarked against standard quantitative investment strategies:
+
+1. **Continuous Probability-Weighted Strategy:** Allocates capital proportionally to the model's forward return probability:
+   $$\text{Weight}_t = f(\mathbb{P}(\text{Bull}_t))$$
+2. **Dollar-Cost Averaging (DCA):** Systematic fixed monthly capital injection benchmark.
+3. **Modified Value Averaging:** Dynamic contribution rule scaling purchases counter-cyclically relative to target portfolio trajectories.
+4. **Rule-Based Moving Average & RSI Models:** Classic trend-following benchmarks (e.g., 200-day EMA crossover and 14-month RSI oversold/overbought triggers).
+
+---
+
+## Data Engineering Proof of Concept (PoC)
+
+> [!NOTE]
+> **Architectural Scope & Transparency:**
+> The lakehouse infrastructure described below currently operates as an **exploratory Proof of Concept (PoC)**. It is **architecturally decoupled** from the standalone Machine Learning engine and serves as an engineering testbed to explore scalable, containerized streaming ingestion and partitioned storage for enterprise environments.
+
+### Streaming & Lakehouse Ingestion Pipeline
 
 ```mermaid
 flowchart LR
-    P[Python event producers] --> K[Apache Kafka<br/>events topic]
-    A[Apache Airflow<br/>DAG scheduler] --> S[Apache Spark<br/>Bronze job]
-    K --> S
-    S --> B[(MinIO<br/>Bronze Parquet)]
-    B -. planned .-> V[(Silver<br/>clean and validated)]
-    V -. planned .-> G[(Gold<br/>analytics-ready)]
-    A --> PG[(PostgreSQL<br/>Airflow metadata)]
+    P[Python Synthetic Producers] -->|JSON Stream| K[Apache Kafka<br/>events topic]
+    A[Apache Airflow<br/>DAG Orchestrator] -->|Triggers Batch Job| S[Apache Spark<br/>Bronze Ingestion]
+    K -->|Consumes Window| S
+    S -->|Writes Partitioned Parquet| B[(MinIO Lakehouse<br/>Bronze Layer)]
+    B -. Planned .-> V[(Silver Layer<br/>Cleaned & Validated)]
+    V -. Planned .-> G[(Gold Layer<br/>Feature Store & Analytics)]
+    A --> PG[(PostgreSQL<br/>Airflow State)]
     Z[ZooKeeper] --> K
 ```
 
-Two producers generate JSON events and publish them to Kafka. Airflow schedules a Spark batch job, which reads the configured time window, applies a typed schema, creates calendar partitions, and appends the resulting Parquet dataset to MinIO.
+The PoC implements a Medallion-architecture ingestion pattern:
 
-### 2. Financial ML research
+- **Streaming Event Ingestion (Apache Kafka):** Synthetic Python producers publish high-throughput JSON financial events to a partitioned Kafka topic.
+- **Distributed Batch Processing (Apache Spark):** Spark batch consumers extract windowed event streams, enforce explicit schemas, generate calendar partitions (`year`, `month`, `day`, `hour`), and write partitioned Snappy-compressed Parquet datasets to S3 storage.
+- **Workflow Orchestration (Apache Airflow):** Airflow DAGs (`lakehouse_pipeline.py`) coordinate execution windows, parameter injection, and Spark job submissions.
+- **Object Storage (MinIO):** S3-compatible local lakehouse managing `s3a://bronze/`, `s3a://silver/`, and `s3a://gold/` storage buckets.
 
-```mermaid
-flowchart LR
-    D[Market and macro data] --> F[Monthly alignment<br/>and feature engineering]
-    F --> W[Purged walk-forward<br/>validation]
-    W --> X[XGBoost classifier]
-    X --> E[Metrics, calibration<br/>and SHAP explanations]
-    X --> T[Historical strategy<br/>simulations]
-```
+### Decoupled Architecture Rationale
 
-This workflow runs as standalone research code under [`models/`](models/); it is not currently orchestrated by Airflow or connected to the lakehouse pipeline.
+Separating the research engine from the distributed lakehouse allows:
+1. **Rapid Research Iteration:** Fast quantitative experimentation on curated historical macroeconomic time series without streaming overhead.
+2. **Infrastructure Scalability:** A proven distributed ingestion blueprint (Kafka $\to$ Spark $\to$ MinIO) ready to scale into real-time tick/order-book data pipelines.
+3. **Future Unification:** Clear roadmap path to bridge both systems via a centralized **Feature Store** (e.g., Feast) and automated Airflow MLOps training DAGs.
 
-## Implementation status
+---
 
-| Area | Status | Available today |
-| --- | --- | --- |
-| Local infrastructure | Implemented | Docker Compose services for Airflow, Kafka, Spark, MinIO, PostgreSQL, and ZooKeeper |
-| Event ingestion | Implemented | Two synthetic Python producers and Kafka topic initialisation |
-| Bronze layer | Implemented | Time-windowed Kafka processing and partitioned Parquet writes to MinIO |
-| Silver and Gold layers | Scaffolding | Spark files and MinIO buckets exist; transformations are planned |
-| Financial data acquisition | Implemented | Standalone scripts for selected market and macroeconomic series |
-| Financial modelling | Implemented research workflow | Feature engineering, XGBoost, walk-forward evaluation, calibration, and SHAP |
-| Strategy comparison | Implemented research workflow | Rule-based, DCA, and modified value-averaging simulations |
+## Tech Stack
 
-## Technology stack
+| Domain | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Machine Learning** | `XGBoost` | Gradient boosted decision trees for time series classification |
+| **Model Explainability** | `SHAP` | Game-theoretic TreeExplainer for feature attribution |
+| **Scientific Computing** | `scikit-learn`, `pandas`, `numpy`, `scipy` | Feature engineering, calibration metrics, array computation |
+| **Data Visualization** | `matplotlib`, `seaborn` | High-resolution scorecards, calibration plots, equity curves |
+| **Data Acquisition** | `yfinance`, `pandas_datareader`, `requests` | Historical market and macroeconomic data ingestion |
+| **Workflow Orchestration**| `Apache Airflow` | DAG scheduling, task dependency management, and monitoring |
+| **Distributed Computing** | `Apache Spark` (PySpark) | Large-scale event processing, schema enforcement, Parquet writes |
+| **Event Streaming** | `Apache Kafka`, `ZooKeeper` | High-throughput streaming broker and distributed coordination |
+| **Lakehouse Storage** | `MinIO` (S3 API) | Partitioned object storage for Medallion lakehouse layers |
+| **Database & Metadata** | `PostgreSQL` | Metadata storage backend for Apache Airflow |
+| **Containerization** | `Docker`, `Docker Compose` | Reproducible multi-service local infrastructure |
 
-| Component | Purpose |
-| --- | --- |
-| Docker Compose | Reproducible local infrastructure |
-| Apache Airflow | Workflow orchestration and scheduling |
-| Apache Kafka | Event streaming and buffering |
-| Apache Spark | Distributed batch processing |
-| MinIO | S3-compatible object storage |
-| PostgreSQL | Airflow metadata database |
-| ZooKeeper | Kafka coordination in the local environment |
-| Python | Producers, utilities, and financial analytics |
-| XGBoost and SHAP | Classification and model explainability |
+---
 
-## Repository map
+## Project Structure
 
 ```text
-airflow/dags/             Airflow DAG definitions
-docker/                   Dockerfiles and Compose configuration
-kafka/                    Synthetic Kafka event producer
-models/                   Financial data, ML, and strategy scripts
-spark/                    Bronze job, future Silver/Gold jobs, and Spark config
-sql/                      MinIO initialisation utilities
-.env.example              Required environment variables
+.
+├── models/                           # 🧠 PRIMARY ANALYTICAL & ML ENGINE
+│   ├── src/                          # Core modular package
+│   │   ├── config.py                 # Hyperparameters, horizons, feature lists & paths
+│   │   ├── data_loader.py            # Financial data ingestion, cleaning & frequency resampling
+│   │   ├── features.py               # Feature engineering, publication lags & target creation
+│   │   ├── walk_forward.py           # Purged Walk-Forward CV engine with temporal embargo
+│   │   ├── rollout.py                # 10-Year out-of-sample final rollout evaluation
+│   │   ├── tuning.py                 # Time-aware hyperparameter random search
+│   │   ├── explainability.py         # SHAP interpretability, tree explanations & live inference
+│   │   ├── simulation.py             # Quantitative strategy simulators (DCA, VA, ML Signal)
+│   │   ├── metrics.py                # Probabilistic (ECE, Brier) & financial performance metrics
+│   │   └── plots.py                  # High-resolution diagnostic figures & scorecards
+│   │
+│   ├── data/                         # Historical market & macroeconomic CSV series
+│   ├── metrics/                      # Generated evaluation artifacts, figures & scorecards
+│   ├── backtest/                     # Classical strategy comparison outputs
+│   ├── run_pipeline.py               # CLI orchestrator with modular stage execution
+│   ├── predictions.py                # Direct end-to-end ML pipeline entry point
+│   ├── compare_strategies_simple.py  # Rule-based (RSI, Moving Average) backtesting benchmark
+│   ├── get_data.py                   # Macroeconomic & financial data scrapers
+│   └── README.md                     # Detailed ML engine technical documentation
+│
+├── airflow/                          # ⚙️ DATA ENGINEERING PoC: Airflow Orchestration
+│   └── dags/
+│       └── lakehouse_pipeline.py     # DAG scheduling Spark Bronze ingestion jobs
+│
+├── kafka/                            # ⚙️ DATA ENGINEERING PoC: Event Streaming
+│   └── kafka_producer.py             # Synthetic streaming event generator
+│
+├── spark/                            # ⚙️ DATA ENGINEERING PoC: Distributed Processing
+│   ├── spark_bronze.py               # Kafka-to-MinIO Bronze Parquet batch processing job
+│   ├── spark_silver.py               # Silver layer scaffolding
+│   ├── spark_gold.py                 # Gold layer scaffolding
+│   └── spark-defaults.conf           # Spark S3A / MinIO connector configuration
+│
+├── docker/                           # 🐳 Container Infrastructure
+│   ├── docker-compose.yml            # Multi-container orchestration (Airflow, Spark, Kafka, MinIO)
+│   ├── airflow/                      # Custom Airflow Docker image
+│   ├── producer/                     # Custom Kafka producer container
+│   └── buckets/                      # MinIO automated bucket initialization
+│
+├── sql/                              # MinIO & database initialization scripts
+├── .env.example                      # Template for environment variables
+└── README.md                         # Main repository documentation
 ```
 
-## Quick start
+---
 
-### Prerequisites
+## How to Run
 
-- Docker Desktop with Docker Compose v2.
-- At least 8 GB of RAM allocated to Docker is recommended.
-- Python 3.10+ to run the standalone financial scripts outside the containers.
+### 1. Quantitative ML Research Pipeline
 
-Create the local environment file:
+The machine learning engine runs standalone with Python 3.10+:
 
 ```bash
+# 1. Clone the repository
+git clone https://github.com/Arqaen/data-pipeline-management.git
+cd data-pipeline-management
+
+# 2. Create and activate a virtual environment
+python -m venv venv
+# Linux/macOS:
+source venv/bin/activate
+# Windows PowerShell:
+.\venv\Scripts\Activate.ps1
+
+# 3. Install dependencies
+pip install numpy pandas scikit-learn xgboost shap matplotlib seaborn yfinance
+```
+
+#### Run End-to-End Prediction Pipeline
+```bash
+python models/predictions.py
+```
+*or via the CLI orchestrator:*
+```bash
+python models/run_pipeline.py --stage all
+```
+
+#### Run Specific Pipeline Stages
+```bash
+# Feature correlation analysis & exploratory data diagnostics
+python models/run_pipeline.py --stage eda
+
+# Purged Walk-Forward Cross-Validation & Metric Scorecards
+python models/run_pipeline.py --stage walk-forward
+
+# 10-Year Out-of-Sample Final Rollout Evaluation
+python models/run_pipeline.py --stage rollout
+
+# Model Fitting & SHAP Interpretability Visualizations
+python models/run_pipeline.py --stage explain
+```
+
+#### Advanced Hyperparameter Search
+```bash
+python models/run_pipeline.py --stage walk-forward --horizon 36 --random-search
+```
+
+---
+
+### 2. Data Engineering Infrastructure (PoC)
+
+To run the containerized Kafka-Spark-Airflow-MinIO streaming lakehouse:
+
+#### Prerequisites
+- Docker Desktop with Docker Compose v2 (recommended: $\ge 8\text{ GB}$ RAM allocated).
+
+```bash
+# 1. Create local environment configuration
 cp .env.example .env
-```
-
-On Windows PowerShell:
-
-```powershell
+# Windows PowerShell:
 Copy-Item .env.example .env
+
+# 2. Build and launch containers in background
+docker compose -f docker/docker-compose.yml --env-file .env up --build -d
 ```
 
-Review `.env` before starting. The Compose setup expects MinIO credentials, an Airflow username, and a scheduling window:
+#### Service Endpoints
 
-```dotenv
-MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=change-me
-AIRFLOW_USERNAME=admin
-WINDOW=5
-```
+| Service | Endpoint | Purpose | Credentials (Default) |
+| :--- | :--- | :--- | :--- |
+| **Apache Airflow** | `http://localhost:8081` | Pipeline DAG Orchestration | `admin` / `admin` |
+| **Apache Spark Master** | `http://localhost:8080` | Spark Cluster Status & Jobs | - |
+| **MinIO Console** | `http://localhost:9001` | S3 Object Storage UI | `minioadmin` / (from `.env`) |
+| **MinIO S3 API** | `http://localhost:9000` | S3-Compatible Storage Endpoint | (from `.env`) |
+| **Apache Kafka** | `localhost:9092` | Event Broker Endpoint | - |
 
-Start the platform from the repository root:
-
+#### Manage Containers
 ```bash
-docker compose -f docker/docker-compose.yml --env-file .env up --build
-```
-
-Add `-d` before `--build` to run it in the background.
-
-### Local services
-
-| Service | URL or address | Purpose |
-| --- | --- | --- |
-| Airflow | http://localhost:8081 | Workflow UI |
-| Spark Master | http://localhost:8080 | Cluster and job status |
-| MinIO API | http://localhost:9000 | S3-compatible endpoint |
-| MinIO Console | http://localhost:9001 | Object storage UI |
-| Kafka | http://localhost:9092 | Local broker endpoint |
-
-Use the credentials configured in `.env`.
-
-## Engineering highlights
-
-### Orchestrated event processing
-
-[`airflow/dags/lakehouse_pipeline.py`](airflow/dags/lakehouse_pipeline.py) defines the `lakehouse_pipeline` DAG and submits the Bronze Spark job with the Kafka, MinIO, and time-window configuration.
-
-[`kafka/kafka_producer.py`](kafka/kafka_producer.py) publishes synthetic events such as:
-
-```json
-{
-  "user_id": 12,
-  "product": "A",
-  "price": 45.60,
-  "timestamp": 1710000000.0
-}
-```
-
-[`spark/spark_bronze.py`](spark/spark_bronze.py) parses each payload into a typed schema, filters it using the Airflow-provided window, derives `year`, `month`, `day`, and `hour` partitions, and appends Parquet data to `s3a://bronze/eventos_batch`.
-
-### Time-aware financial modelling
-
-The research workflow deliberately uses chronological evaluation rather than a random train/test split:
-
-1. [`get_data.py`](models/get_data.py) acquires selected historical market and macroeconomic series.
-2. [`run_pipeline.py`](models/run_pipeline.py) / [`predictions.py`](models/predictions.py) aligns series to a monthly frequency and builds lagged macroeconomic, valuation, momentum, and technical features.
-3. A forward-return label is created for the configured horizon and excluded from the predictors.
-4. Purged walk-forward folds train on past observations and evaluate on later periods with temporal embargo.
-5. Out-of-sample predictions are assessed with classification, calibration, stability, risk, and turnover metrics.
-6. A final model produces feature-importance and SHAP explanations for interpretation (see [`models/README.md`](models/README.md)).
-7. [`compare_strategies_simple.py`](models/compare_strategies_simple.py) compares moving-average and RSI rules with DCA and modified value averaging.
-
-Generated research artefacts include CSV summaries and diagnostic, calibration, feature-importance, SHAP, and strategy-comparison charts. No performance figure is presented here because results depend on the selected data, horizon, parameters, costs, and evaluation period.
-
-## Useful commands
-
-```bash
-# Check running services
+# Check service status
 docker compose -f docker/docker-compose.yml ps
 
-# Follow all logs
+# View live logs
 docker compose -f docker/docker-compose.yml logs -f
 
-# Follow one service
-docker compose -f docker/docker-compose.yml logs -f airflow
-
-# Stop containers without removing them
-docker compose -f docker/docker-compose.yml stop
-
-# Stop and remove containers and networks
+# Stop services
 docker compose -f docker/docker-compose.yml down
 ```
 
-Avoid `docker compose down -v` unless you intentionally want to delete the local database and object-storage volumes.
+---
 
-## Limitations
+## Research Artifacts & Diagnostic Outputs
 
-- **Decoupled Architecture (Data Pipeline vs. ML Engine):** The data engineering platform (Airflow/Spark/MinIO) and the ML research workflow operate as decoupled modules. The lakehouse pipeline processes synthetic streaming telemetry, whereas the ML engine trains on historical market and macroeconomic datasets.
-- The platform is designed for local development, not production deployment.
-- Kafka runs as a single broker with replication factor one and ZooKeeper coordination.
-- MinIO uses HTTP inside the Docker network.
-- Silver and Gold transformations are not implemented yet.
-- The financial workflows are research artefacts, not live trading systems or investment recommendations.
-- Historical simulations remain sensitive to data quality, parameter selection, transaction costs, and market-regime changes.
+Executing the ML pipeline generates high-resolution figures and evaluation tables under `models/metrics/`:
+
+| Artifact | Type | Description |
+| :--- | :--- | :--- |
+| `walk_forward_metrics_scorecard.png` | Scorecard | Summary table of classification ($F_1$, AUC, MCC) and probabilistic metrics |
+| `walk_forward_baselines_scorecard.png` | Scorecard | Statistical validation against naive zero-rule and base-rate baselines |
+| `walk_forward_calibration.png` | Diagnostic | Quantile calibration curve versus theoretical perfect reliability diagonal |
+| `walk_forward_roc_pr.png` | Diagnostic | Dual ROC and Precision-Recall curves across walk-forward folds |
+| `walk_forward_classification.png` | Timeline | Time series of S&P 500 price overlaid with model probability step curves |
+| `shap_summary_cls.png` | XAI | Global SHAP beeswarm chart ranking macroeconomic feature attributions |
+| `shap_last_prediction_cls.png` | XAI | Local SHAP waterfall decomposition of the latest live market observation |
+| `walk_forward_equity_curve_directional.png`| Backtest | Cumulative probability-weighted equity trajectory vs Buy & Hold |
+| `roi_strategies_walk_forward.png` | Backtest | Total ROI comparison: DCA vs Modified Value Averaging vs ML Signal |
+| `final_rollout_subperiod_metrics.png` | Validation | Out-of-sample stability breakdown across early and late 10-year regimes |
+| `correlation_heatmap.png` | EDA | Pearson correlation matrix across macroeconomic features and target |
+
+---
 
 ## Roadmap
 
-- Implement Silver cleaning, validation, and deduplication.
-- Build Gold aggregates and analytics-ready tables.
-- Unify data lakehouse and ML research workflows via a dedicated Feature Store layer.
-- Integrate automated MLOps retraining and inference DAGs in Airflow with experiment tracking.
-- Add automated data-quality checks and tests.
-- Add pipeline observability and freshness monitoring.
-- Replace the local ZooKeeper-based Kafka setup with a production-oriented coordination approach.
-- Add a locked and reproducible dependency definition for the financial environment.
+- [x] Time-aware financial feature engineering with zero lookahead bias.
+- [x] Purged Walk-Forward Cross-Validation with temporal embargo.
+- [x] XGBoost classifier with dynamic F1 threshold tuning.
+- [x] Probabilistic calibration diagnostics (ECE, Brier decomposition).
+- [x] SHAP game-theoretic explainability suite.
+- [x] Dockerized Kafka $\to$ Spark $\to$ MinIO Bronze lakehouse PoC.
+- [ ] **Feature Store Integration:** Bridge the lakehouse and ML engine using Feast or Hopsworks.
+- [ ] **Airflow MLOps DAGs:** Automate model retraining, data drift monitoring, and inference inside Airflow.
+- [ ] **Silver/Gold Transformations:** Implement automated Spark cleaning, deduplication, and aggregation jobs.
+- [ ] **Regime-Switching Strategy Overlay:** Incorporate volatility targeting and downside protection constraints into backtests.
 
-## License
+---
+
+## License & Disclaimer
 
 This project is licensed under the [MIT License](LICENSE).
+
+> [!CAUTION]
+> **Financial Disclaimer:**
+> This repository is developed solely for academic research, educational exploration, and portfolio demonstration. The models, forecasts, signals, and backtests presented herein do **not** constitute financial, investment, legal, or tax advice. Past simulated performance is no guarantee of future market returns.
