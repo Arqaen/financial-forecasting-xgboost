@@ -317,14 +317,19 @@ Separating the research engine from the distributed lakehouse allows:
 │   │   ├── metrics.py                # Probabilistic (ECE, Brier) & financial performance metrics
 │   │   └── plots.py                  # High-resolution diagnostic figures & scorecards
 │   │
-│   ├── data/                         # Historical market & macroeconomic CSV series
+│   ├── data/                         # 34 historical market & macroeconomic datasets (tracked in repo)
 │   ├── metrics/                      # Generated evaluation artifacts, figures & scorecards
 │   ├── backtest/                     # Classical strategy comparison outputs
 │   ├── run_pipeline.py               # CLI orchestrator with modular stage execution
 │   ├── predictions.py                # Direct end-to-end ML pipeline entry point
 │   ├── compare_strategies_simple.py  # Rule-based (RSI, Moving Average) backtesting benchmark
-│   ├── get_data.py                   # Macroeconomic & financial data scrapers
+│   ├── get_data.py                   # Macroeconomic & financial data acquisition utility
 │   └── README.md                     # Detailed ML engine technical documentation
+│
+├── tests/                            # 🧪 Automated Unit & Integration Tests
+│   ├── test_config.py                # Path resolution and parameter tests
+│   ├── test_data_loader.py           # Dataset integrity & presence tests
+│   └── test_get_data.py              # Data acquisition tests
 │
 ├── airflow/                          # ⚙️ DATA ENGINEERING PoC: Airflow Orchestration
 │   └── dags/
@@ -342,6 +347,9 @@ Separating the research engine from the distributed lakehouse allows:
 │   ├── airflow/                      # Custom Airflow Docker image
 │   └── producer/                     # Custom Kafka producer container
 │
+├── requirements.txt                  # Pinned production dependencies
+├── requirements-dev.txt              # Testing and development dependencies
+├── pyproject.toml                    # Standard PEP 517/621 package & tool configuration
 ├── .env.example                      # Template for environment variables
 └── README.md                         # Main repository documentation
 ```
@@ -367,7 +375,10 @@ source venv/bin/activate
 .\venv\Scripts\Activate.ps1
 
 # 3. Install dependencies
-pip install numpy pandas scikit-learn xgboost shap matplotlib seaborn yfinance
+pip install -r requirements.txt
+
+# Or install as editable package with development tools:
+# pip install -e ".[dev]"
 ```
 
 #### Run End-to-End Prediction Pipeline
