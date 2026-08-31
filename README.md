@@ -159,9 +159,13 @@ Feature Engineering Pipeline
 
 For a given prediction horizon $h$ (e.g., $h = 36$ months):
 - **Continuous Log-Return (Regression Target):**
-  $$y_{\text{reg}, t} = \ln\left(\frac{\text{Close}_{t+h}}{\text{Close}_t}\right)$$
+  $$
+  y_{\text{reg}, t} = \ln\left(\frac{\text{Close}_{t+h}}{\text{Close}_t}\right)
+  $$
 - **Binary Directional Label (Classification Target):**
-  $$y_{\text{cls}, t} = \mathbb{I}\left(\text{Close}_{t+h} > \text{Close}_t\right) = \begin{cases} 1 & \text{if forward return} > 0 \\ 0 & \text{otherwise} \end{cases}$$
+  $$
+  y_{\text{cls}, t} = \mathbb{I}\left(\text{Close}_{t+h} > \text{Close}_t\right) = \begin{cases} 1 & \text{if forward return } > 0 \\ 0 & \text{otherwise} \end{cases}
+  $$
 
 All target calculations are strictly excluded from the feature space during model training.
 
