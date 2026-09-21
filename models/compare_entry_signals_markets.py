@@ -32,7 +32,7 @@ vaya a recuperarse, que es justo el supuesto del que viven estas senales.
 
 import datetime as dt
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List
 
 import matplotlib
 
@@ -41,7 +41,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
 from compare_entry_signals import (
     AQUA,
     BASELINE,
@@ -55,10 +54,8 @@ from compare_entry_signals import (
     SURFACE,
     UNIVERSE,
     build_catalog,
-    classify,
     load_prices,
     run,
-    sign_test,
     summarize,
 )
 
@@ -95,7 +92,7 @@ def market_breakdown(detail: pd.DataFrame, strategies: List[str]) -> pd.DataFram
         diff = (group["edge_vs_dca_pct"] - base).dropna()
         if diff.empty:
             continue
-        entry = {"estrategia": name}
+        entry: Dict[str, Any] = {"estrategia": name}
         markets = group.loc[diff.index, "market"]
         for market in UNIVERSE:
             values = diff[markets == market]
@@ -129,10 +126,18 @@ def plot_average_roi(summary: pd.DataFrame, n_tickers: int, out_path: Path) -> N
     fig, axes = plt.subplots(1, 2, figsize=(17, 8), facecolor=SURFACE, sharey=True)
 
     panels = (
-        (axes[0], "roi_medio_pct", "ROI medio (lo que pediste)",
-         "Media aritmetica del ROI por serie (%)"),
-        (axes[1], "roi_mediano_pct", "ROI mediano (resistente a outliers)",
-         "Mediana del ROI por serie (%)"),
+        (
+            axes[0],
+            "roi_medio_pct",
+            "ROI medio (lo que pediste)",
+            "Media aritmetica del ROI por serie (%)",
+        ),
+        (
+            axes[1],
+            "roi_mediano_pct",
+            "ROI mediano (resistente a outliers)",
+            "Mediana del ROI por serie (%)",
+        ),
     )
 
     for ax, column, title, xlabel in panels:
@@ -181,9 +186,7 @@ def plot_by_market(breakdown: pd.DataFrame, out_path: Path) -> None:
     top = breakdown.sort_values("TODOS", ascending=False).head(8)
     markets = list(UNIVERSE)
 
-    fig, axes = plt.subplots(
-        1, len(markets), figsize=(19, 6.4), facecolor=SURFACE, sharey=True
-    )
+    fig, axes = plt.subplots(1, len(markets), figsize=(19, 6.4), facecolor=SURFACE, sharey=True)
 
     order = top.sort_values("TODOS")["estrategia"].tolist()
     for ax, market in zip(axes, markets):
@@ -240,12 +243,25 @@ def main() -> None:
     pd.set_option("display.max_rows", 200)
     pd.set_option("display.float_format", lambda value: "{0:,.1f}".format(value))
 
-    print("\n=== ROI promedio con capital igualado ({0} series) ===".format(detail["ticker"].nunique()))
+    print(
+        "\n=== ROI promedio con capital igualado ({0} series) ===".format(
+            detail["ticker"].nunique()
+        )
+    )
     shown = summary[summary["strategy"].isin(SHOWN)].sort_values("roi_medio_pct", ascending=False)
     print(
         shown[
-            ["strategy", "grupo", "disparos", "roi_medio_pct", "roi_mediano_pct",
-             "edge_medio_pct", "mejora_media_pp", "gana_a_rsi_pct", "p_signo"]
+            [
+                "strategy",
+                "grupo",
+                "disparos",
+                "roi_medio_pct",
+                "roi_mediano_pct",
+                "edge_medio_pct",
+                "mejora_media_pp",
+                "gana_a_rsi_pct",
+                "p_signo",
+            ]
         ].to_string(index=False)
     )
 

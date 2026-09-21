@@ -29,31 +29,29 @@ import json
 import pickle
 import urllib.parse
 import urllib.request
-from pathlib import Path
-from typing import Dict, List, Tuple
-
-import numpy as np
-import pandas as pd
+from typing import Callable, Dict, List, Tuple
 
 import compare_realistic_deployment as realistic
 import compare_robustness as robustness
+import numpy as np
+import pandas as pd
 from compare_entry_signals import OUT_DIR, build_catalog, sign_test
 from compare_realistic_deployment import WEEKLY
 
 TICKER = "^GSPC"
 CACHE = OUT_DIR / "sp500_weekly.pkl"
 
-HORIZON_YEARS = 20          # cuanto ahorra cada cohorte
+HORIZON_YEARS = 20  # cuanto ahorra cada cohorte
 HORIZON = HORIZON_YEARS * 52
-STEP = 52                   # una cohorte nueva por ano de arranque
-MIN_FIRES_COHORT = 8        # disparos minimos para que la cohorte cuente
-MIN_COHORTS = 40            # y cohortes minimas para que la config cuente
+STEP = 52  # una cohorte nueva por ano de arranque
+MIN_FIRES_COHORT = 8  # disparos minimos para que la cohorte cuente
+MIN_COHORTS = 40  # y cohortes minimas para que la config cuente
 
 CASH_RATE = 0.02
-SHIFTS = 1000               # rotaciones del test de permutacion
+SHIFTS = 1000  # rotaciones del test de permutacion
 ERA_LABELS = ("1928-1954", "1954-1980", "1980-2006")
 
-FILTERS: List[Tuple[str, str, callable]] = [
+FILTERS: List[Tuple[str, str, Callable]] = [
     ("Significativa", "p < 0,05 por permutacion circular", lambda r: r["p_shift"] < 0.05),
     ("Cohortes", "gana en >= 60% de las 79 cohortes", lambda r: r["wins"] >= 60.0),
     (ERA_LABELS[0], "gana en las cohortes de preguerra", lambda r: r[ERA_LABELS[0]] > 50),
@@ -132,12 +130,18 @@ def evaluate(cohorts: Dict[str, pd.Series], prices: pd.Series) -> Tuple[pd.DataF
     century = prices.to_numpy(float)
     rng = np.random.default_rng(20260921)
 
-    dca = {name: robustness.final_value(values, np.ones(len(values), bool))
-           for name, values in arrays.items()}
+    dca = {
+        name: robustness.final_value(values, np.ones(len(values), bool))
+        for name, values in arrays.items()
+    }
     years = {name: int(name) for name in cohorts}
     edges = np.quantile(list(years.values()), [1 / 3, 2 / 3])
     era_of = {
-        name: ERA_LABELS[0] if year < edges[0] else (ERA_LABELS[1] if year < edges[1] else ERA_LABELS[2])
+        name: (
+            ERA_LABELS[0]
+            if year < edges[0]
+            else (ERA_LABELS[1] if year < edges[1] else ERA_LABELS[2])
+        )
         for name, year in years.items()
     }
 
@@ -225,8 +229,11 @@ def deployment_chart(cohorts: Dict[str, pd.Series], period: str) -> pd.DataFrame
         headline_note=note,
         tail=0 if reliable else 8,
     )
-    print("\n  Cohortes: {0} · con >=60% de acierto: {1} · mejor acierto: {2:.1f}%".format(
-        len(cohorts), reliable, best))
+    print(
+        "\n  Cohortes: {0} · con >=60% de acierto: {1} · mejor acierto: {2:.1f}%".format(
+            len(cohorts), reliable, best
+        )
+    )
     return summary
 
 
@@ -237,8 +244,11 @@ def main() -> None:
     period = "{0}-{1}".format(prices.index[0].year, prices.index[-1].year)
 
     print("{0}: {1} semanas, {2}".format(TICKER, len(prices), period))
-    print("{0} cohortes de {1} anos, arrancando de {2} a {3}\n".format(
-        len(cohorts), HORIZON_YEARS, min(cohorts), max(cohorts)))
+    print(
+        "{0} cohortes de {1} anos, arrancando de {2} a {3}\n".format(
+            len(cohorts), HORIZON_YEARS, min(cohorts), max(cohorts)
+        )
+    )
 
     summary = deployment_chart(cohorts, period)
     summary.to_csv(OUT_DIR / "sp500_realistic_deployment_summary.csv", index=False)
@@ -255,16 +265,20 @@ def main() -> None:
         tail=0 if reachable else 7,
     )
     robustness.plot(
-        chosen, dca_roi, len(table),
+        chosen,
+        dca_roi,
+        len(table),
         OUT_DIR / "sp500_robustness_ranking.png",
         filters=FILTERS,
         sample="S&P 500, {0} cohortes de {1} anos, efectivo al 2%".format(
-            len(cohorts), HORIZON_YEARS),
+            len(cohorts), HORIZON_YEARS
+        ),
         period=period,
         source="models/compare_sp500_history.py",
     )
     table.sort_values(["filtros_superados", "roi"], ascending=False).to_csv(
-        OUT_DIR / "sp500_robustness_summary.csv", index=False)
+        OUT_DIR / "sp500_robustness_summary.csv", index=False
+    )
 
     pd.set_option("display.width", 250)
     print("\nDCA de referencia: {0:.1f}% de ROI mediano".format(dca_roi))
@@ -272,16 +286,28 @@ def main() -> None:
     for label, description, _ in FILTERS:
         print("  {0:<15} {1:<38} pasan {2:>3}".format(label, description, int(table[label].sum())))
 
-    columns = ["strategy", "family", "roi", "wins", "p_shift", "fires",
-               *ERA_LABELS, "filtros_superados"]
+    columns = [
+        "strategy",
+        "family",
+        "roi",
+        "wins",
+        "p_shift",
+        "fires",
+        *ERA_LABELS,
+        "filtros_superados",
+    ]
     survivors = table[table["filtros_superados"] == len(FILTERS)]
     print("\n  Superan los {0} a la vez: {1}".format(len(FILTERS), len(survivors)))
 
     print("\nMejores por rentabilidad:")
-    print(table.sort_values("roi", ascending=False).head(12)[columns].round(2).to_string(index=False))
+    print(
+        table.sort_values("roi", ascending=False).head(12)[columns].round(2).to_string(index=False)
+    )
 
     print("\nMejores por tasa de acierto sobre las cohortes:")
-    print(table.sort_values("wins", ascending=False).head(12)[columns].round(2).to_string(index=False))
+    print(
+        table.sort_values("wins", ascending=False).head(12)[columns].round(2).to_string(index=False)
+    )
 
     print("\nPeores por rentabilidad (las mas selectivas):")
     print(table.sort_values("roi").head(8)[columns].round(2).to_string(index=False))

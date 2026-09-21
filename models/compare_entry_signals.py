@@ -41,7 +41,7 @@ import datetime as dt
 import itertools
 import pickle
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, cast
 
 import matplotlib
 
@@ -50,7 +50,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
 from compare_strategies_simple import OUT_DIR, calculate_rsi, fetch_weekly_close
 
 # El universo original (27 tickers) ya tocaba doce paises, pero nunca se
@@ -60,18 +59,59 @@ from compare_strategies_simple import OUT_DIR, calculate_rsi, fetch_weekly_close
 UNIVERSE: Dict[str, List[str]] = {
     "EEUU": ["^GSPC", "^IXIC", "^DJI", "^RUT", "^NYA"],
     "Europa": [
-        "^FTSE", "^GDAXI", "^FCHI", "^IBEX", "FTSEMIB.MI", "^AEX",
-        "^SSMI", "^BFX", "^OMX", "^STOXX50E", "^ATX", "PSI20.LS",
+        "^FTSE",
+        "^GDAXI",
+        "^FCHI",
+        "^IBEX",
+        "FTSEMIB.MI",
+        "^AEX",
+        "^SSMI",
+        "^BFX",
+        "^OMX",
+        "^STOXX50E",
+        "^ATX",
+        "PSI20.LS",
     ],
     "Asia-Pacifico": [
-        "^N225", "^HSI", "^BSESN", "^NSEI", "^KS11", "^TWII",
-        "^STI", "^JKSE", "^AXJO", "^NZ50", "^KLSE", "000001.SS",
+        "^N225",
+        "^HSI",
+        "^BSESN",
+        "^NSEI",
+        "^KS11",
+        "^TWII",
+        "^STI",
+        "^JKSE",
+        "^AXJO",
+        "^NZ50",
+        "^KLSE",
+        "000001.SS",
     ],
     "Otros mercados": ["^GSPTSE", "^BVSP", "^MXX", "^MERV", "^TA125.TA", "^JN0U.JO"],
-    "Materias primas": ["CL=F", "GC=F", "SI=F", "HG=F", "NG=F", "ZC=F", "ZW=F", "ZS=F", "PL=F", "PA=F"],
+    "Materias primas": [
+        "CL=F",
+        "GC=F",
+        "SI=F",
+        "HG=F",
+        "NG=F",
+        "ZC=F",
+        "ZW=F",
+        "ZS=F",
+        "PL=F",
+        "PA=F",
+    ],
     "Acciones": [
-        "PFE", "IDR.MC", "ACX.MC", "REPYY", "SAN", "BKT.MC",
-        "GEST.MC", "ITX.MC", "GE", "BB", "GM", "EGRNF",
+        "PFE",
+        "IDR.MC",
+        "ACX.MC",
+        "REPYY",
+        "SAN",
+        "BKT.MC",
+        "GEST.MC",
+        "ITX.MC",
+        "GE",
+        "BB",
+        "GM",
+        "EGRNF",
     ],
 }
 MARKET_OF = {ticker: market for market, tickers in UNIVERSE.items() for ticker in tickers}
@@ -169,7 +209,9 @@ def sig_stochastic(window: int, threshold: float) -> SignalFn:
 
 def sig_macd_hist(fast: int, slow: int, span: int, threshold: float) -> SignalFn:
     def fn(prices: pd.Series) -> pd.Series:
-        macd = prices.ewm(span=fast, adjust=False).mean() - prices.ewm(span=slow, adjust=False).mean()
+        macd = (
+            prices.ewm(span=fast, adjust=False).mean() - prices.ewm(span=slow, adjust=False).mean()
+        )
         hist = (macd - macd.ewm(span=span, adjust=False).mean()) / prices * 100.0
         hist.iloc[:slow] = np.nan  # ewm no produce NaN: hay que recortar el warmup
         return hist <= threshold
@@ -200,7 +242,9 @@ def build_catalog() -> Dict[str, Tuple[str, SignalFn]]:
     def add(family: str, name: str, fn: SignalFn) -> None:
         catalog[name] = (family, fn)
 
-    for window, threshold in itertools.product((2, 3, 4, 7, 14, 21, 28), (10, 15, 20, 25, 30, 35, 40)):
+    for window, threshold in itertools.product(
+        (2, 3, 4, 7, 14, 21, 28), (10, 15, 20, 25, 30, 35, 40)
+    ):
         add("RSI", "RSI({0}) < {1}".format(window, threshold), sig_rsi(window, threshold))
 
     for lookback, pct in itertools.product((52, 104, 156, 260, None), (10, 15, 20, 25, 30, 40, 50)):
@@ -241,8 +285,8 @@ def build_catalog() -> Dict[str, Tuple[str, SignalFn]]:
             sig_stochastic(window, threshold),
         )
 
-    for threshold in (-0.5, -1.0, -2.0, -3.0):
-        add("MACD", "MACD hist <= {0}%".format(threshold), sig_macd_hist(12, 26, 9, threshold))
+    for m_threshold in (-0.5, -1.0, -2.0, -3.0):
+        add("MACD", "MACD hist <= {0}%".format(m_threshold), sig_macd_hist(12, 26, 9, m_threshold))
 
     for window, quantile in itertools.product((13, 26), (0.80, 0.90, 0.95)):
         add(
@@ -261,7 +305,11 @@ def build_catalog() -> Dict[str, Tuple[str, SignalFn]]:
         ("Retorno 52s <= -30%", "Estocastico(52) <= 10"),
     )
     for left, right in pairs:
-        add("Combo", "({0}) Y ({1})".format(left, right), combine(catalog[left][1], catalog[right][1], "and"))
+        add(
+            "Combo",
+            "({0}) Y ({1})".format(left, right),
+            combine(catalog[left][1], catalog[right][1], "and"),
+        )
 
     return catalog
 
@@ -329,7 +377,7 @@ def sign_test(differences: pd.Series) -> float:
 def load_prices(cache: Optional[Path] = None) -> Dict[str, pd.Series]:
     if cache and cache.exists():
         with cache.open("rb") as handle:
-            return pickle.load(handle)
+            return cast(Dict[str, pd.Series], pickle.load(handle))
 
     data: Dict[str, pd.Series] = {}
     for ticker in TICKERS:
@@ -526,9 +574,7 @@ def plot(summary: pd.DataFrame, n_tickers: int, out_path: Path) -> None:
     colors = [BLUE if value >= 0 else RED for value in values]
     ax.barh(finalists["strategy"], values, color=colors, height=0.62)
     ax.axvline(0, color=MUTED, linewidth=1.0)
-    ax.set_title(
-        "Cuanto baten al RSI, midiendo ticker a ticker", color=INK, fontsize=12, pad=12
-    )
+    ax.set_title("Cuanto baten al RSI, midiendo ticker a ticker", color=INK, fontsize=12, pad=12)
     ax.set_xlabel(
         "Mejora media del edge frente a RSI(14) < 30 (puntos porcentuales)",
         color=MUTED,
@@ -599,9 +645,17 @@ def main() -> None:
 
     print("\n=== Las 15 que mas baten a RSI(14)<30 (ordenadas por mejora MEDIA) ===")
     columns = [
-        "strategy", "grupo", "disparos", "edge_medio_pct", "edge_vs_dca_pct",
-        "roi_medio_pct", "z_mediano", "mejora_media_pp", "mejora_vs_rsi_pp",
-        "gana_a_rsi_pct", "p_signo",
+        "strategy",
+        "grupo",
+        "disparos",
+        "edge_medio_pct",
+        "edge_vs_dca_pct",
+        "roi_medio_pct",
+        "z_mediano",
+        "mejora_media_pp",
+        "mejora_vs_rsi_pp",
+        "gana_a_rsi_pct",
+        "p_signo",
     ]
     print(summary.head(15)[columns].to_string(index=False))
 

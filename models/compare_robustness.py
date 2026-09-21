@@ -25,7 +25,7 @@ motivo concreto que conviene ver: dejan de dispararse despues de 2013.
 
 import datetime as dt
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple
 
 import matplotlib
 
@@ -34,7 +34,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
 from compare_entry_signals import (
     BLUE,
     GRID,
@@ -50,15 +49,15 @@ from compare_entry_signals import (
 from compare_realistic_deployment import WEEKLY
 
 CACHE = OUT_DIR / "prices_weekly.pkl"
-CASH_RATE = 0.02        # mismo supuesto que el ranking de rentabilidad real
-MIN_FIRES = 5           # por debajo de esto la serie no es evaluable
-MIN_SERIES = 40         # y debe serlo en casi todas
-MIN_FIRES_ERA = 3       # disparos minimos dentro de una mitad
-MIN_SERIES_ERA = 30     # mitades evaluables para que la mitad cuente
+CASH_RATE = 0.02  # mismo supuesto que el ranking de rentabilidad real
+MIN_FIRES = 5  # por debajo de esto la serie no es evaluable
+MIN_SERIES = 40  # y debe serlo en casi todas
+MIN_FIRES_ERA = 3  # disparos minimos dentro de una mitad
+MIN_SERIES_ERA = 30  # mitades evaluables para que la mitad cuente
 
 # Los cinco filtros. Cada uno es un predicado sobre la fila de resultados, de
 # modo que el grafico pueda dibujar la matriz de aprobados sin duplicar logica.
-FILTERS: List[Tuple[str, str, callable]] = [
+FILTERS: List[Tuple[str, str, Callable]] = [
     ("Significativa", "p < 0,05", lambda r: r["p"] < 0.05),
     ("1a mitad", "gana al DCA en 2000-2013", lambda r: r["era1"] > 50),
     ("2a mitad", "gana al DCA en 2013-2026", lambda r: r["era2"] > 50),
@@ -67,8 +66,8 @@ FILTERS: List[Tuple[str, str, callable]] = [
     ("Familia", ">= 60% de sus hermanas gana", lambda r: r["familia_coherente_pct"] >= 60),
 ]
 
-MIN_WIN_RATE = 60.0     # el corte del grafico anterior, para poder compararlos
-SHOWN = 14              # candidatas por rentabilidad que entran en el grafico
+MIN_WIN_RATE = 60.0  # el corte del grafico anterior, para poder compararlos
+SHOWN = 14  # candidatas por rentabilidad que entran en el grafico
 
 
 def final_value(prices: np.ndarray, fires: np.ndarray) -> float:
@@ -92,7 +91,7 @@ def final_value(prices: np.ndarray, fires: np.ndarray) -> float:
     cash_at_fire = growth[idx] * (accumulated[idx] - previous)
     shares = float(np.sum(cash_at_fire / prices[idx]))
     leftover = growth[-1] * (accumulated[-1] - accumulated[idx[-1]])
-    return shares * prices[-1] + leftover
+    return float(shares * prices[-1] + leftover)
 
 
 def win_rate(values: Dict[str, float], reference: Dict[str, float]) -> float:
@@ -121,10 +120,7 @@ def evaluate_all(data: Dict[str, pd.Series]) -> Tuple[pd.DataFrame, float]:
 
     rows: List[dict] = []
     for name, (family, fn) in build_catalog().items():
-        fires = {
-            t: fn(p).reindex(p.index).fillna(False).to_numpy(bool)
-            for t, p in data.items()
-        }
+        fires = {t: fn(p).reindex(p.index).fillna(False).to_numpy(bool) for t, p in data.items()}
         usable = {t: m for t, m in fires.items() if m.sum() >= MIN_FIRES}
         if len(usable) < MIN_SERIES:
             continue
@@ -176,9 +172,7 @@ def evaluate_all(data: Dict[str, pd.Series]) -> Tuple[pd.DataFrame, float]:
         table[label] = table.apply(test, axis=1)
     table["filtros_superados"] = table[[label for label, _, _ in FILTERS]].sum(axis=1)
 
-    dca_roi = float(
-        np.median([dca["full"][t] / contributed[t] - 1.0 for t in arrays]) * 100.0
-    )
+    dca_roi = float(np.median([dca["full"][t] / contributed[t] - 1.0 for t in arrays]) * 100.0)
     return table, dca_roi
 
 
@@ -211,7 +205,7 @@ def plot(
     dca_roi: float,
     total: int,
     path: Path,
-    filters: List[Tuple[str, str, callable]] = FILTERS,
+    filters: List[Tuple[str, str, Callable]] = FILTERS,
     sample: str = "47 series de renta variable, efectivo al 2%",
     period: str = "2000-2026",
     source: str = "models/compare_robustness.py",
@@ -227,7 +221,9 @@ def plot(
     passes_all = chosen["filtros_superados"] == len(filters)
 
     figure, (left, right) = plt.subplots(
-        1, 2, figsize=(15.5, 0.46 * len(labels) + 3.1),
+        1,
+        2,
+        figsize=(15.5, 0.46 * len(labels) + 3.1),
         gridspec_kw={"width_ratios": [1.65, 1.0], "wspace": 0.06},
     )
     figure.patch.set_facecolor(SURFACE)
@@ -248,16 +244,21 @@ def plot(
     left.barh(y, chosen["roi"], height=0.62, color=colors, zorder=3)
     left.axvline(dca_roi, color=INK, linestyle="--", linewidth=1.0, zorder=4)
     left.text(
-        dca_roi + 2.0, y.min() - 0.5, "DCA {0:.0f}%".format(dca_roi),
-        color=INK, fontsize=9, ha="left", va="bottom",
+        dca_roi + 2.0,
+        y.min() - 0.5,
+        "DCA {0:.0f}%".format(dca_roi),
+        color=INK,
+        fontsize=9,
+        ha="left",
+        va="bottom",
     )
     for position, value in zip(y, chosen["roi"]):
-        left.text(value + 2.5, position, "{0:.0f}%".format(value),
-                  va="center", fontsize=9, color=INK)
+        left.text(
+            value + 2.5, position, "{0:.0f}%".format(value), va="center", fontsize=9, color=INK
+        )
 
     left.set_yticks(y)
-    left.set_yticklabels(labels, fontsize=9.5,
-                         color=INK)
+    left.set_yticklabels(labels, fontsize=9.5, color=INK)
     for tick, ok in zip(left.get_yticklabels(), passes_all):
         tick.set_color(INK if ok else MUTED)
         tick.set_fontweight("bold" if ok else "normal")
@@ -277,7 +278,8 @@ def plot(
     # una palabra, asi que el cuerpo se ajusta a la mas larga.
     headers = [label for label, _, _ in filters]
     right.set_xticklabels(
-        headers, color=INK,
+        headers,
+        color=INK,
         fontsize=9.5 if max(len(header) for header in headers) <= 9 else 8.2,
     )
     right.tick_params(axis="x", pad=6)
@@ -286,21 +288,28 @@ def plot(
     for column, (label, _, _) in enumerate(filters):
         for position, ok in zip(y, chosen[label]):
             right.scatter(
-                column, position, s=118,
+                column,
+                position,
+                s=118,
                 facecolor=BLUE if ok else SURFACE,
                 edgecolor=BLUE if ok else GRID,
-                linewidth=1.6, zorder=3,
+                linewidth=1.6,
+                zorder=3,
             )
     for position in y:
-        right.plot([-0.45, len(filters) - 0.55], [position, position],
-                   color=GRID, linewidth=0.6, zorder=1)
+        right.plot(
+            [-0.45, len(filters) - 0.55], [position, position], color=GRID, linewidth=0.6, zorder=1
+        )
     right.set_xlabel(
         "Circulo lleno = supera el filtro   ·   hueco = no",
-        fontsize=9.5, color=MUTED,
+        fontsize=9.5,
+        color=MUTED,
     )
     right.set_title(
         "Los {0} filtros anti-sobreajuste".format(len(filters)),
-        fontsize=12.5, color=INK, pad=14,
+        fontsize=12.5,
+        color=INK,
+        pad=14,
     )
 
     survivors = int(passes_all.sum())
@@ -309,12 +318,16 @@ def plot(
         "Solo {0} de {1} configuraciones superan los {2} filtros   ({3})".format(
             survivors, total, len(filters), sample
         ),
-        fontsize=13.5, color=INK, y=0.985,
+        fontsize=13.5,
+        color=INK,
+        y=0.985,
     )
     figure.text(
-        0.012, 0.012,
+        0.012,
+        0.012,
         "Generado {0} · {1}".format(dt.date.today().isoformat(), source),
-        fontsize=8, color=MUTED,
+        fontsize=8,
+        color=MUTED,
     )
     # tight_layout no sabe medir la matriz de circulos, asi que el margen
     # izquierdo se deduce de la etiqueta mas larga: los nombres de los combos
@@ -347,7 +360,17 @@ def main() -> None:
     for label, description, _ in FILTERS:
         print("  {0:<15} {1:<32} pasan {2:>3}".format(label, description, int(table[label].sum())))
     print("\n  Superan los cinco a la vez: {0}\n".format(len(survivors)))
-    columns = ["strategy", "family", "roi", "wins", "p", "fires", "era1", "era2", "mercados_ganados"]
+    columns = [
+        "strategy",
+        "family",
+        "roi",
+        "wins",
+        "p",
+        "fires",
+        "era1",
+        "era2",
+        "mercados_ganados",
+    ]
     print(survivors.sort_values("roi", ascending=False)[columns].round(1).to_string(index=False))
     print("\nEscrito {0}".format(csv_path))
     print("Escrito {0}".format(plot_path))

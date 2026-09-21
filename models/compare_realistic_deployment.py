@@ -24,7 +24,7 @@ exactamente el supuesto del que viven las senales de caida.
 
 import datetime as dt
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import matplotlib
 
@@ -33,7 +33,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
 from compare_entry_signals import (
     BLUE,
     GRID,
@@ -55,9 +54,9 @@ DCA = "DCA (cada semana)"
 CASH_RATES = (0.0, 0.02)
 HEADLINE_RATE = 0.02
 
-MIN_FIRES = 5      # una senal que dispara menos no es evaluable
-MIN_SERIES = 40    # y debe serlo en casi todas las series
-SHOWN = 18         # cuantas entran en el grafico
+MIN_FIRES = 5  # una senal que dispara menos no es evaluable
+MIN_SERIES = 40  # y debe serlo en casi todas las series
+SHOWN = 18  # cuantas entran en el grafico
 
 # Una estrategia que bate al DCA en poco mas de la mitad de las series no se
 # distingue de una moneda al aire por muy alto que sea su ROI mediano, asi que
@@ -246,7 +245,7 @@ def plot(
     period: str = "2000-{0}".format(dt.date.today().year),
     unit: str = "series",
     min_win_rate: float = MIN_WIN_RATE,
-    headline_note: str = None,
+    headline_note: Optional[str] = None,
     tail: int = 0,
 ) -> None:
     chosen = select_for_plot(summary, min_win_rate, tail)
@@ -303,8 +302,10 @@ def plot(
     # El DCA es la referencia contra la que se mide, no un competidor: se deja
     # sin barra en vez de dibujarlo ganandose a si mismo el 0% de las veces.
     wins = np.array(
-        [np.nan if name == DCA else win - 50.0
-         for name, win in zip(names, headline["gana_a_dca_pct"])]
+        [
+            np.nan if name == DCA else win - 50.0
+            for name, win in zip(names, headline["gana_a_dca_pct"])
+        ]
     )
     ax.barh(
         names,
@@ -329,11 +330,14 @@ def plot(
         )
     ax.set_title(
         "En cuantas {0} bate al DCA (50% = moneda al aire)".format(unit),
-        color=INK, fontsize=12, pad=10,
+        color=INK,
+        fontsize=12,
+        pad=10,
     )
     ax.set_xlabel(
         "{0} ganadas frente al DCA, desviacion sobre el 50% (pp)".format(unit.capitalize()),
-        color=MUTED, fontsize=9,
+        color=MUTED,
+        fontsize=9,
     )
     # Ticks derivados del rango real: con un filtro de acierto distinto, unos
     # valores fijos dejarian barras fuera del ultimo tick.
@@ -398,8 +402,13 @@ def main() -> None:
     pd.set_option("display.float_format", lambda value: "{0:,.2f}".format(value))
 
     columns = [
-        "strategy", "roi_mediano_pct", "gana_a_dca_pct", "p_signo",
-        "peor_vs_dca_pct", "pct_tiempo_invertido", "efectivo_final_pct",
+        "strategy",
+        "roi_mediano_pct",
+        "gana_a_dca_pct",
+        "p_signo",
+        "peor_vs_dca_pct",
+        "pct_tiempo_invertido",
+        "efectivo_final_pct",
     ]
     for rate in CASH_RATES:
         block = summary[summary["cash_rate"] == rate].sort_values(
@@ -416,8 +425,11 @@ def main() -> None:
         print("   ganan en >50% de las series: {0:>3} de {1}".format(len(often), len(block)))
         print("   ... y ademas con p < 0.05  : {0:>3} de {1}".format(len(solid), len(block)))
         reliable = block[block["gana_a_dca_pct"] >= MIN_WIN_RATE]
-        print("   ganan en >={0:.0f}% de las series: {1:>3} de {2}".format(
-            MIN_WIN_RATE, len(reliable), len(block)))
+        print(
+            "   ganan en >={0:.0f}% de las series: {1:>3} de {2}".format(
+                MIN_WIN_RATE, len(reliable), len(block)
+            )
+        )
         print("\nLas que superan ese {0:.0f}%, por rentabilidad:".format(MIN_WIN_RATE))
         print(reliable[columns].to_string(index=False))
 

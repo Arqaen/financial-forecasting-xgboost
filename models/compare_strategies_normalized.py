@@ -22,7 +22,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
 from compare_strategies_simple import (
     OUT_DIR,
     STRATEGY_ORDER,
