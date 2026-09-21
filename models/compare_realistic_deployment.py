@@ -144,7 +144,7 @@ def self_test(prices: pd.Series, catalog: Dict) -> None:
     print("self-test OK: vectorizada == bucle semana a semana ({0:.4f}x)".format(fast))
 
 
-def run(data: Dict[str, pd.Series], catalog: Dict) -> pd.DataFrame:
+def run(data: Dict[str, pd.Series], catalog: Dict, min_series: int = MIN_SERIES) -> pd.DataFrame:
     """Barre el catalogo ENTERO, no una seleccion a mano.
 
     Elegir a dedo que estrategias se comparan es la forma mas facil de
@@ -176,7 +176,7 @@ def run(data: Dict[str, pd.Series], catalog: Dict) -> pd.DataFrame:
                         **simulate_fast(arrays[ticker], fires, rate),
                     }
                 )
-        if len(measured) >= MIN_SERIES * len(CASH_RATES):
+        if len(measured) >= min_series * len(CASH_RATES):
             rows.extend(measured)
         if position % 50 == 0:
             print("  ... {0}/{1} configuraciones".format(position, len(candidates)))
