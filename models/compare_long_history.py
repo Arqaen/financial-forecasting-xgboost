@@ -32,19 +32,17 @@ import sys
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple
 
 import matplotlib
 
 matplotlib.use("Agg")
 
+import compare_realistic_deployment as realistic
+import compare_robustness as robustness
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-import compare_realistic_deployment as realistic
-import compare_robustness as robustness
 from compare_entry_signals import BLUE, GRID, INK, MUTED, ORANGE, OUT_DIR, SURFACE, build_catalog
 from compare_realistic_deployment import WEEKLY
 
@@ -68,13 +66,15 @@ class Asset:
 
 
 ASSETS: Dict[str, Asset] = {
-    "sp500": Asset("sp500", "^GSPC", "S&P 500", horizon_years=20, step_weeks=52, min_fires_cohort=8),
+    "sp500": Asset(
+        "sp500", "^GSPC", "S&P 500", horizon_years=20, step_weeks=52, min_fires_cohort=8
+    ),
     "btc": Asset("btc", "BTC-USD", "Bitcoin", horizon_years=5, step_weeks=13, min_fires_cohort=5),
 }
 
 MIN_COHORT_SHARE = 0.5  # una senal debe ser evaluable en la mitad de las cohortes
 CASH_RATE = 0.02
-SHIFTS = 1000       # rotaciones del test de permutacion
+SHIFTS = 1000  # rotaciones del test de permutacion
 
 
 def fetch_full_history(ticker: str) -> pd.Series:
@@ -126,8 +126,10 @@ def build_cohorts(prices: pd.Series, asset: Asset) -> Dict[str, pd.Series]:
     for start in range(0, len(prices) - horizon + 1, asset.step_weeks):
         window = prices.iloc[start : start + horizon]
         begins = window.index[0]
-        label = str(begins.year) if asset.step_weeks >= 52 else "{0}T{1}".format(
-            begins.year, (begins.month - 1) // 3 + 1
+        label = (
+            str(begins.year)
+            if asset.step_weeks >= 52
+            else "{0}T{1}".format(begins.year, (begins.month - 1) // 3 + 1)
         )
         cohorts[label] = window
     return cohorts
@@ -155,11 +157,14 @@ def era_split(cohorts: Dict[str, pd.Series]) -> Tuple[Dict[str, str], Tuple[str,
     return era_of, labels
 
 
-def build_filters(labels: Tuple[str, str, str], n_cohorts: int) -> List[Tuple[str, str, callable]]:
+def build_filters(labels: Tuple[str, str, str], n_cohorts: int) -> List[Tuple[str, str, Callable]]:
     return [
         ("Significativa", "p < 0,05 por permutacion circular", lambda r: r["p_shift"] < 0.05),
-        ("Cohortes", "gana en >= 60% de las {0} cohortes".format(n_cohorts),
-         lambda r: r["wins"] >= 60.0),
+        (
+            "Cohortes",
+            "gana en >= 60% de las {0} cohortes".format(n_cohorts),
+            lambda r: r["wins"] >= 60.0,
+        ),
         (labels[0], "gana en las cohortes mas antiguas", lambda r: r[labels[0]] > 50),
         (labels[1], "gana en las cohortes intermedias", lambda r: r[labels[1]] > 50),
         (labels[2], "gana en las cohortes recientes", lambda r: r[labels[2]] > 50),
@@ -184,7 +189,7 @@ def evaluate(
     cohorts: Dict[str, pd.Series],
     prices: pd.Series,
     asset: Asset,
-    filters: List[Tuple[str, str, callable]],
+    filters: List[Tuple[str, str, Callable]],
     era_of: Dict[str, str],
     labels: Tuple[str, str, str],
 ) -> Tuple[pd.DataFrame, float]:
@@ -193,8 +198,10 @@ def evaluate(
     century = prices.to_numpy(float)
     rng = np.random.default_rng(20260921)
 
-    dca = {name: robustness.final_value(values, np.ones(len(values), bool))
-           for name, values in arrays.items()}
+    dca = {
+        name: robustness.final_value(values, np.ones(len(values), bool))
+        for name, values in arrays.items()
+    }
     # Exigir un numero fijo de cohortes no vale para dos activos con 80 y 29:
     # se pide la mitad, para que una senal no se juzgue en un submuestreo.
     min_cohorts = max(6, int(MIN_COHORT_SHARE * len(cohorts)))
@@ -252,8 +259,9 @@ def deployment_chart(cohorts: Dict[str, pd.Series], asset: Asset, period: str) -
     le basta con recibir un diccionario de series, que es lo que es una cohorte.
     """
     summary = realistic.summarize(
-        realistic.run(cohorts, build_catalog(),
-                      min_series=max(6, int(MIN_COHORT_SHARE * len(cohorts))))
+        realistic.run(
+            cohorts, build_catalog(), min_series=max(6, int(MIN_COHORT_SHARE * len(cohorts)))
+        )
     )
 
     headline = summary[summary["cash_rate"] == realistic.HEADLINE_RATE]
@@ -265,7 +273,8 @@ def deployment_chart(cohorts: Dict[str, pd.Series], asset: Asset, period: str) -
     # el resultado en vez de ensenarlo.
     note = (
         "Ninguna de las {0} bate al DCA en el 60% de las cohortes; la mejor llega al {1:.0f}%".format(
-            len(strategies), best)
+            len(strategies), best
+        )
         if reliable == 0
         else "Solo las {0} que baten al DCA en al menos el 60% de las cohortes".format(reliable)
     )
@@ -281,8 +290,11 @@ def deployment_chart(cohorts: Dict[str, pd.Series], asset: Asset, period: str) -
         headline_note=note,
         tail=0 if reliable else 8,
     )
-    print("  Cohortes: {0} · con >=60% de acierto: {1} · mejor acierto: {2:.1f}%".format(
-        len(cohorts), reliable, best))
+    print(
+        "  Cohortes: {0} · con >=60% de acierto: {1} · mejor acierto: {2:.1f}%".format(
+            len(cohorts), reliable, best
+        )
+    )
     return summary
 
 
@@ -294,8 +306,11 @@ def analyse(asset: Asset) -> Tuple[pd.DataFrame, pd.DataFrame, float]:
     filters = build_filters(labels, len(cohorts))
 
     print("\n=== {0} ({1}) ===".format(asset.label, asset.ticker))
-    print("{0} semanas, {1} · {2} cohortes de {3} anos cada {4} semanas".format(
-        len(prices), period, len(cohorts), asset.horizon_years, asset.step_weeks))
+    print(
+        "{0} semanas, {1} · {2} cohortes de {3} anos cada {4} semanas".format(
+            len(prices), period, len(cohorts), asset.horizon_years, asset.step_weeks
+        )
+    )
 
     summary = deployment_chart(cohorts, asset, period)
     summary.to_csv(OUT_DIR / "{0}_realistic_deployment_summary.csv".format(asset.key), index=False)
@@ -311,30 +326,55 @@ def analyse(asset: Asset) -> Tuple[pd.DataFrame, pd.DataFrame, float]:
         tail=0 if reachable else 7,
     )
     robustness.plot(
-        chosen, dca_roi, len(table),
+        chosen,
+        dca_roi,
+        len(table),
         OUT_DIR / "{0}_robustness_ranking.png".format(asset.key),
         filters=filters,
         sample="{0}, {1} cohortes de {2} anos, efectivo al 2%".format(
-            asset.label, len(cohorts), asset.horizon_years),
+            asset.label, len(cohorts), asset.horizon_years
+        ),
         period=period,
         source="models/compare_long_history.py",
     )
     table.sort_values(["filtros_superados", "roi"], ascending=False).to_csv(
-        OUT_DIR / "{0}_robustness_summary.csv".format(asset.key), index=False)
+        OUT_DIR / "{0}_robustness_summary.csv".format(asset.key), index=False
+    )
 
-    print("\n  DCA de referencia: {0:.1f}% de ROI mediano · {1} configuraciones".format(
-        dca_roi, len(table)))
+    print(
+        "\n  DCA de referencia: {0:.1f}% de ROI mediano · {1} configuraciones".format(
+            dca_roi, len(table)
+        )
+    )
     for label, description, _ in filters:
-        print("    {0:<14} {1:<42} pasan {2:>3}".format(label, description, int(table[label].sum())))
-    print("    Superan los {0} a la vez: {1}".format(
-        len(filters), int((table["filtros_superados"] == len(filters)).sum())))
+        print(
+            "    {0:<14} {1:<42} pasan {2:>3}".format(label, description, int(table[label].sum()))
+        )
+    print(
+        "    Superan los {0} a la vez: {1}".format(
+            len(filters), int((table["filtros_superados"] == len(filters)).sum())
+        )
+    )
 
-    columns = ["strategy", "family", "roi", "wins", "p_shift", "fires", *labels, "filtros_superados"]
+    columns = [
+        "strategy",
+        "family",
+        "roi",
+        "wins",
+        "p_shift",
+        "fires",
+        *labels,
+        "filtros_superados",
+    ]
     pd.set_option("display.width", 250)
     print("\n  Mejores por rentabilidad:")
-    print(table.sort_values("roi", ascending=False).head(10)[columns].round(2).to_string(index=False))
+    print(
+        table.sort_values("roi", ascending=False).head(10)[columns].round(2).to_string(index=False)
+    )
     print("\n  Mejores por tasa de acierto:")
-    print(table.sort_values("wins", ascending=False).head(10)[columns].round(2).to_string(index=False))
+    print(
+        table.sort_values("wins", ascending=False).head(10)[columns].round(2).to_string(index=False)
+    )
 
     return table, summary, dca_roi
 
@@ -359,16 +399,26 @@ def compare(results: Dict[str, Tuple[pd.DataFrame, pd.DataFrame, float]]) -> Non
         rest = headline[headline["strategy"] != realistic.DCA]
         dca_roi = float(dca["roi_mediano_pct"].iloc[0])
         label = "{0} · {1} cohortes de {2} anos".format(
-            asset.label, int(rest["n_series"].median()), asset.horizon_years)
+            asset.label, int(rest["n_series"].median()), asset.horizon_years
+        )
 
         counts, edges = np.histogram(rest["gana_a_dca_pct"], bins=np.arange(0, 105, 5))
-        left.step(edges[:-1] + 2.5, counts, where="mid", color=colors[key], linewidth=2.0, label=label)
+        left.step(
+            edges[:-1] + 2.5, counts, where="mid", color=colors[key], linewidth=2.0, label=label
+        )
         left.fill_between(edges[:-1] + 2.5, counts, step="mid", color=colors[key], alpha=0.13)
 
         right.scatter(
-            rest["efectivo_final_pct"], rest["roi_mediano_pct"] / dca_roi * 100.0 - 100.0,
-            s=34, marker=markers[key], facecolor=colors[key], edgecolor=SURFACE,
-            linewidth=0.8, alpha=0.85, label=label, zorder=3,
+            rest["efectivo_final_pct"],
+            rest["roi_mediano_pct"] / dca_roi * 100.0 - 100.0,
+            s=34,
+            marker=markers[key],
+            facecolor=colors[key],
+            edgecolor=SURFACE,
+            linewidth=0.8,
+            alpha=0.85,
+            label=label,
+            zorder=3,
         )
 
     left.axvline(50, color=INK, linestyle="--", linewidth=1.0, zorder=4)
@@ -379,8 +429,16 @@ def compare(results: Dict[str, Tuple[pd.DataFrame, pd.DataFrame, float]]) -> Non
         for _, block, _ in results.values()
     )
     left.set_xlim(0, max(60.0, reach + 8.0))
-    left.text(49.0, left.get_ylim()[1] * 0.5, "moneda al aire",
-              color=INK, fontsize=9, ha="right", rotation=90, va="center")
+    left.text(
+        49.0,
+        left.get_ylim()[1] * 0.5,
+        "moneda al aire",
+        color=INK,
+        fontsize=9,
+        ha="right",
+        rotation=90,
+        va="center",
+    )
     left.set_xlabel("Cohortes en las que la estrategia bate al DCA (%)", fontsize=9.5, color=MUTED)
     left.set_ylabel("Numero de configuraciones", fontsize=9.5, color=MUTED)
     left.set_title("Donde cae cada configuracion", fontsize=12.5, color=INK, pad=12)
@@ -403,7 +461,8 @@ def compare(results: Dict[str, Tuple[pd.DataFrame, pd.DataFrame, float]]) -> Non
         # La leyenda va al hueco de cada panel: arriba en el histograma, abajo
         # en la nube, donde la linea del empate ocupa el borde superior.
         legend = axis.legend(
-            frameon=False, fontsize=9.5,
+            frameon=False,
+            fontsize=9.5,
             loc="upper right" if axis is left else "lower left",
         )
         for text in legend.get_texts():
@@ -412,7 +471,8 @@ def compare(results: Dict[str, Tuple[pd.DataFrame, pd.DataFrame, float]]) -> Non
     figure.suptitle(
         "El mismo barrido sobre dos activos con todo su historico\n"
         "Cuanto mas sube el subyacente, mas caro sale esperar a la caida",
-        fontsize=13.5, color=INK,
+        fontsize=13.5,
+        color=INK,
     )
     figure.tight_layout(rect=(0, 0, 1, 0.93))
     path = OUT_DIR / "long_history_comparison.png"
