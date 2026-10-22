@@ -12,6 +12,10 @@ A rigorous, time-aware quantitative machine learning framework designed to forec
 
 Additionally, the repository features an exploratory **Data Engineering Proof of Concept (PoC)** demonstrating containerized, distributed streaming ingestion and lakehouse storage (Kafka, Spark, Airflow, MinIO).
 
+![Aggregated walk-forward ROC and precision-recall curves with reference baselines](docs/images/walk_forward_roc_pr.png)
+
+*Temporal model evaluation: aggregated walk-forward ROC and precision-recall curves, including reference baselines (thesis Figure 5.6, p. 50). The [selected project figures](docs/images/README.md) document model evaluation, explainability, orchestration, distributed processing, and partitioned storage. Images retain their original resolution and show the thesis experiments, rather than a new execution of the current code.*
+
 ---
 
 ## Table of Contents
@@ -248,6 +252,10 @@ To prevent the model from operating as a black box, the framework uses `shap.Tre
 - **Non-Linear Interactions:** Automatic pair-wise interaction analysis (e.g., Equity Risk Premium conditioned on real interest rates).
 - **Local Waterfall Decompositions:** Single-observation breakdown for the most recent market regime, visualizing the contribution of each live economic variable to the latest prediction.
 
+![SHAP beeswarm showing the direction and magnitude of macroeconomic feature contributions](docs/images/shap_summary_cls.png)
+
+*Global feature attribution from the thesis (Figure 5.11, p. 54). Colors represent feature values; horizontal position represents contribution to the model output. This explains model behavior rather than establishing causality.*
+
 ---
 
 ## Quantitative Strategy Simulation & Benchmarking
@@ -300,6 +308,29 @@ Separating the research engine from the distributed lakehouse allows:
 2. **Infrastructure Scalability:** A proven distributed ingestion blueprint (Kafka $\to$ Spark $\to$ MinIO) ready to scale into real-time tick/order-book data pipelines.
 3. **Future Unification:** Clear roadmap path to bridge both systems via a centralized **Feature Store** (e.g., Feast) and automated Airflow MLOps training DAGs.
 
+**Airflow DAG run history** (Figure 3.1, p. 26)
+
+![Airflow interface showing the lakehouse pipeline DAG run history](docs/images/airflow_runs.png)
+
+*Scheduled ingestion windows and recorded task outcomes make pipeline execution inspectable. This screenshot shows the thesis prototype's DAG run history.*
+
+<details>
+<summary>View distributed job execution and partitioned storage</summary>
+
+**Spark cluster status** (Figure 3.4, p. 35)
+
+![Spark master interface listing workers and completed applications](docs/images/spark_cluster.jpg)
+
+*The Spark master lists two live workers and completed Kafka-to-Bronze batch applications.*
+
+**MinIO Bronze storage** (Figure 3.5, p. 36)
+
+![MinIO object browser displaying Parquet objects in the Bronze bucket](docs/images/minio_bronze.png)
+
+*Snappy-compressed Parquet objects are organized under year, month, day, and hour partitions. These screenshots document the thesis prototype; the current PoC and ML research engine remain decoupled as described above.*
+
+</details>
+
 ---
 
 ## Tech Stack
@@ -324,6 +355,7 @@ Separating the research engine from the distributed lakehouse allows:
 
 ```text
 .
+├── docs/images/                      # Curated thesis figures, screenshots & source references
 ├── models/                           # 🧠 PRIMARY ANALYTICAL & ML ENGINE
 │   ├── src/                          # Core modular package
 │   │   ├── config.py                 # Hyperparameters, horizons, feature lists & paths
@@ -473,6 +505,8 @@ docker compose -f docker/docker-compose.yml down
 ---
 
 ## Research Artifacts & Diagnostic Outputs
+
+The [selected project figures](docs/images/README.md) contain five committed images covering model evaluation, explainability, orchestration, distributed processing, and partitioned storage, with source references and raw-download links. These documentation assets live in `docs/images/`, separately from generated run outputs.
 
 Executing the ML pipeline generates high-resolution figures and evaluation tables under `models/metrics/`:
 

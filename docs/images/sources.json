@@ -1,0 +1,62 @@
+{
+  "source_document": "TFG.pdf",
+  "source_sha256": "474bd4554da0f0a4bd57ea4c3c473189a9ac54cc20d878de2d2ee7960b76792b",
+  "extraction": "Embedded raster images extracted with pypdf, at their original pixel dimensions. No pipeline rerun or chart redrawing.",
+  "figures": [
+    {
+      "file": "walk_forward_roc_pr.png",
+      "description": "Walk-forward ROC and precision-recall curves",
+      "thesis_figure": "5.6",
+      "pdf_page": 79,
+      "printed_page": 50,
+      "embedded_image": "Im18.png",
+      "width": 2000,
+      "height": 832,
+      "sha256": "bf02d6fb5a8964b782116fe683e99729a149860aaec37dfb8366be7c77ac9e74"
+    },
+    {
+      "file": "shap_summary_cls.png",
+      "description": "Global SHAP beeswarm",
+      "thesis_figure": "5.11",
+      "pdf_page": 83,
+      "printed_page": 54,
+      "embedded_image": "Im23.png",
+      "width": 800,
+      "height": 630,
+      "sha256": "7e2b8bcb9e003ebe29aa56aca60ac8960299965d2339632a1a2cb739201db55b"
+    },
+    {
+      "file": "airflow_runs.png",
+      "description": "Airflow DAG run history",
+      "thesis_figure": "3.1",
+      "pdf_page": 55,
+      "printed_page": 26,
+      "embedded_image": "Im9.png",
+      "width": 1586,
+      "height": 711,
+      "sha256": "2d98c27667386fb07064e527ffbd660e29b8c64e3c01366b41e0190230dfae5d"
+    },
+    {
+      "file": "spark_cluster.jpg",
+      "description": "Spark master and worker status",
+      "thesis_figure": "3.4",
+      "pdf_page": 64,
+      "printed_page": 35,
+      "embedded_image": "Im11.jpg",
+      "width": 1595,
+      "height": 740,
+      "sha256": "f1ba26ba7c33b3ab668b5c83310201a79629b09ed9e5205a544932e22b9457cf"
+    },
+    {
+      "file": "minio_bronze.png",
+      "description": "MinIO Bronze Parquet objects",
+      "thesis_figure": "3.5",
+      "pdf_page": 65,
+      "printed_page": 36,
+      "embedded_image": "Im12.png",
+      "width": 1581,
+      "height": 693,
+      "sha256": "22c7621831d761d99ff641afc8f4a46be65a214d8e9123f572ea01efec1f2617"
+    }
+  ]
+}
