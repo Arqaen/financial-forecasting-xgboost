@@ -58,5 +58,78 @@
       "height": 693,
       "sha256": "22c7621831d761d99ff641afc8f4a46be65a214d8e9123f572ea01efec1f2617"
     }
+  ],
+  "mlflow_runs": [
+    {
+      "run_name": "shallow-weight1-f1_1",
+      "run_id": "b33cfa49d6a54d2e9bc40d3900897558",
+      "experiment_id": "4",
+      "experiment_name": "class-zero-policies-h36",
+      "export_date": "2026-11-10",
+      "evaluation_start": "1982-01-31",
+      "evaluation_end": "2022-12-31",
+      "evaluated_months": 492,
+      "horizon_months": 36,
+      "walk_forward_folds": 41,
+      "confusion_matrix_actual_rows_predicted_columns": [
+        [
+          32,
+          39
+        ],
+        [
+          34,
+          387
+        ]
+      ],
+      "pooled_metrics": {
+        "AP_0": 0.3073923725522895,
+        "ROC_AUC": 0.7786290187681911,
+        "recall_0": 0.4507042253521127,
+        "precision_0": 0.48484848484848486,
+        "F1_0": 0.46715328467153283
+      },
+      "predictions_sha256": "13bb68b81faf925d520578af93bf28c6dcd4689506a89422776f74bde9ac1332",
+      "derivation": "PNG files copied unchanged from logged MLflow artifacts. Classification diagnostics were reconstructed from saved out-of-sample predictions; investment ROI uses the class-based purchase rule. No retraining during documentation export.",
+      "investment_assumptions": {
+        "monthly_amount": 1,
+        "signal_multiplier": 2,
+        "signal_rule": "Contribute multiplier * monthly_amount if pred=1, else 0",
+        "execution": "Monthly purchases at the recorded closing price",
+        "valuation": "Shares times closing price, excluding fees, dividends and cash interest",
+        "roi": "(portfolio value - cumulative contributions) / cumulative contributions * 100",
+        "comparison": "Strategies may contribute different total amounts",
+        "metric_step": "Zero-based month index; exact dates are in each curve CSV"
+      },
+      "figures": [
+        {
+          "file": "shallow_weight1_f1_1/roc_pr_class0.png",
+          "source_artifact": "diagnostics/walk_forward_roc_pr_class0.png",
+          "width": 2000,
+          "height": 832,
+          "sha256": "e2ab4f76106d6c7d8d390c06718b5d3001713bf223306eb175b8c1845e1b0f37"
+        },
+        {
+          "file": "shallow_weight1_f1_1/classification.png",
+          "source_artifact": "diagnostics/walk_forward_classification.png",
+          "width": 2240,
+          "height": 1120,
+          "sha256": "780062511a2b939f383563cf92ea4ffb71c00dfc271de6e6cc0a88df9d4ad9e6"
+        },
+        {
+          "file": "shallow_weight1_f1_1/confusion_matrix.png",
+          "source_artifact": "diagnostics/walk_forward_confusion_matrix_heatmap.png",
+          "width": 1280,
+          "height": 1080,
+          "sha256": "f617b843ddf8eececc890fc65a7eb084ffed2bfe114a95db435bad3150c3dea1"
+        },
+        {
+          "file": "shallow_weight1_f1_1/investment_strategies.png",
+          "source_artifact": "investment/investment_strategies.png",
+          "width": 2240,
+          "height": 800,
+          "sha256": "cd68603d6575b22d2832f18c1730bc4b7fa2251157890b1cc6f3ced5fb683910"
+        }
+      ]
+    }
   ]
 }

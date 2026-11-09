@@ -14,9 +14,9 @@ A rigorous, time-aware quantitative machine learning framework designed to forec
 
 Additionally, the repository features an exploratory **Data Engineering Proof of Concept (PoC)** demonstrating containerized, distributed streaming ingestion and lakehouse storage (Kafka, Spark, Airflow, MinIO).
 
-![Aggregated walk-forward ROC and precision-recall curves with reference baselines](docs/images/walk_forward_roc_pr.png)
+![Class 0 walk-forward ROC and precision-recall curves for shallow-weight1-f1_1](docs/images/shallow_weight1_f1_1/roc_pr_class0.png)
 
-*Temporal model evaluation: aggregated walk-forward ROC and precision-recall curves, including reference baselines (thesis Figure 5.6, p. 50). The [selected project figures](docs/images/README.md) document model evaluation, explainability, orchestration, distributed processing, and partitioned storage. Images retain their original resolution and show the thesis experiments, rather than a new execution of the current code.*
+*Selected default setup: `shallow-weight1-f1_1`, evaluated on 492 walk-forward monthly predictions from January 1982 through December 2022 at a 36-month horizon. Class 0 ROC-AUC is 0.779 and average precision (AP₀) is 0.307, compared with a negative-class prevalence of 0.144. The [figure gallery and source ledger](docs/images/README.md) distinguish these MLflow results from the original thesis figures.*
 
 ---
 
@@ -230,7 +230,7 @@ Evaluation Metrics Suite
 │
 ├── 2. Classification & Discrimination
 │   ├── ROC-AUC & Precision-Recall AUC (PR-AUC)
-│   ├── Macro / Weighted / Directional F1-Score
+│   ├── Class 0 AP, Recall, Precision & F1; Macro / Weighted / Directional F1
 │   ├── Balanced Accuracy & Matthews Correlation Coefficient (MCC)
 │   └── Lift@K and Precision@Top Deciles
 │
@@ -241,9 +241,33 @@ Evaluation Metrics Suite
     └── Strategy Exposure & Turnover Rate
 ```
 
+#### Selected setup: `shallow-weight1-f1_1`
+
+This run uses the five default features, depth-2 XGBoost trees, equal class weights, and a probability threshold selected on historical validation data to maximize F1 for class 1. The complete-case modeling data starts in 1962; after the initial training period, 41 annual walk-forward folds evaluate January 1982 through December 2022.
+
+![Walk-forward class predictions, S&P 500 prices and upward probabilities for shallow-weight1-f1_1](docs/images/shallow_weight1_f1_1/classification.png)
+
+*The upper panel shows the predicted class alongside the S&P 500 closing price; green points mark correct predictions and red points mark errors. The lower panel shows the probability of a positive 36-month return. These are pooled walk-forward predictions, not in-sample fitted results.*
+
+![Walk-forward confusion matrix for shallow-weight1-f1_1](docs/images/shallow_weight1_f1_1/confusion_matrix.png)
+
+| Class 0 detection metric | Pooled walk-forward result |
+| :--- | ---: |
+| Evaluated months | 492 |
+| Actual negative months | 71 (14.4%) |
+| Detected negatives | 32 of 71 |
+| Missed negatives | 39 |
+| False alarms for class 0 (actual 1, predicted 0) | 34 |
+| Recall₀ | 45.1% |
+| Precision₀ | 48.5% |
+| F1₀ | 0.467 |
+| AP₀ | 0.307 |
+
+*Rows are actual classes and columns are predictions. TN/FP/FN/TP use class 1 as the positive label, so the 34 false alarms for class 0 appear in the FN cell. These pooled metrics differ from averages across individual folds. MLflow experiment: `class-zero-policies-h36`; run ID: `b33cfa49d6a54d2e9bc40d3900897558`.*
+
 > [!WARNING]
 > **Known Limitations:**
-> The 36-month horizon over monthly data yields ~20 independent observations and an 82.9% base rate; reported metrics are point estimates without confidence intervals and should be read as directional, not conclusive. Feature selection was informed by full-sample analysis, so walk-forward results are optimistic.
+> Monthly 36-month forward labels overlap, so the 492 evaluated months are not independent observations. Reported metrics are point estimates without confidence intervals and should be read as directional, not conclusive. Feature selection was informed by full-sample analysis, so walk-forward results are optimistic.
 
 ---
 
@@ -271,6 +295,10 @@ The ROI chart compares three ways to buy shares at the recorded monthly closing 
 3. **Modified value averaging** increases contributions when the portfolio falls below its target value.
 
 ROI is cumulative profit divided by contributed capital. Each strategy can contribute a different total. The directional equity figure illustrates probability-weighted forward returns. Its monthly observations have overlapping forecast horizons, so the compounded curve is theoretical. Moving-average and RSI benchmarks are available in the strategy comparison scripts.
+
+![Cumulative ROI of the selected shallow-weight1-f1_1 signal, DCA and modified value averaging from 1982 through 2022](docs/images/shallow_weight1_f1_1/investment_strategies.png)
+
+*The selected setup's class-based signal ends at 622.2% ROI, versus 596.3% for DCA (blue dashed line) and 598.3% for modified value averaging. With a monthly base amount of 1, cumulative contributions are 852, 492 and 492.36 units respectively. This compares profit relative to each strategy's contributions; it does not establish outperformance under an equal savings budget. The simulation excludes fees, dividends and cash interest.*
 
 ---
 
@@ -509,7 +537,7 @@ docker compose -f docker/docker-compose.yml down
 
 ## Research Artifacts & Diagnostic Outputs
 
-The [selected project figures](docs/images/README.md) contain five committed images covering model evaluation, explainability, orchestration, distributed processing, and partitioned storage, with source references and raw-download links. These documentation assets live in `docs/images/`, separately from generated run outputs.
+The [selected project figures](docs/images/README.md) contain four MLflow figures for `shallow-weight1-f1_1` and five original thesis images covering model evaluation, explainability, orchestration, distributed processing, and partitioned storage. The gallery includes source references and raw-download links. These documentation assets live in `docs/images/`, separately from generated run outputs; the source ledger records the selected run, evaluation dates and image fingerprints.
 
 Executing the ML pipeline generates high-resolution figures and evaluation tables under `models/metrics/`:
 
