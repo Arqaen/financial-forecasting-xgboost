@@ -6,12 +6,46 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 from sklearn.metrics import (
+    average_precision_score,
     brier_score_loss,
     confusion_matrix,
     f1_score,
     precision_score,
     recall_score,
 )
+
+
+def class_zero_metrics(
+    y_true: Union[pd.Series, np.ndarray, Sequence[Any]],
+    y_proba: Union[pd.Series, np.ndarray, Sequence[Any]],
+    y_pred: Union[pd.Series, np.ndarray, Sequence[Any]],
+) -> Dict[str, float]:
+    """Evaluate class 0 using P(0)=1-P(1) and the existing decision threshold.
+
+    Each rate is undefined when its denominator is zero. Counts remain defined.
+    AP is average precision, not trapezoidal PR-AUC. An all-zero target has AP=1.
+    """
+    actual = np.asarray(y_true, dtype=int)
+    alerted = np.asarray(y_pred, dtype=int) == 0
+    proba = np.asarray(y_proba, dtype=float)
+    if actual.shape != alerted.shape or actual.shape != proba.shape:
+        raise ValueError("Expected one probability and one prediction per target")
+    negative = actual == 0
+    negatives = int(negative.sum())
+    alerts = int(alerted.sum())
+    detected = int((negative & alerted).sum())
+    return {
+        "AP_0": (
+            float(average_precision_score(actual, 1.0 - proba, pos_label=0))
+            if negatives
+            else float("nan")
+        ),
+        "recall_0": detected / negatives if negatives else float("nan"),
+        "precision_0": detected / alerts if alerts else float("nan"),
+        "F1_0": 2 * detected / (negatives + alerts) if negatives + alerts else float("nan"),
+        "detected_0": float(detected),
+        "false_alarms_0": float(alerts - detected),
+    }
 
 
 def binary_logloss(
@@ -38,17 +72,21 @@ def best_threshold_by_f1(
     y_proba: Union[pd.Series, np.ndarray, Sequence[Any]],
     *,
     thresholds: Optional[np.ndarray] = None,
+    pos_label: int = 1,
 ) -> Tuple[float, float]:
-    """Find the optimal classification decision threshold that maximizes F1 score.
+    """Find the first candidate threshold maximizing F1 for the requested class.
 
     Args:
         y_true: Ground truth series or array.
-        y_proba: Model predicted probabilities.
+        y_proba: Probabilities of class 1. A score >= threshold predicts class 1.
         thresholds: Array of candidate thresholds to test (defaults to 50 values from 0.1 to 0.9).
+        pos_label: Class to favor when scoring predictions (0 or 1).
 
     Returns:
         Tuple containing (best_threshold, best_f1_score).
     """
+    if pos_label not in (0, 1):
+        raise ValueError("pos_label must be 0 or 1")
     y_arr = np.asarray(y_true, dtype=int)
     if len(np.unique(y_arr)) < 2:
         return 0.5, float("nan")
@@ -63,7 +101,7 @@ def best_threshold_by_f1(
     best_f1 = -np.inf
     for t in thresholds:
         preds = (proba >= float(t)).astype(int)
-        score = float(f1_score(y_arr, preds, zero_division=0))
+        score = float(f1_score(y_arr, preds, pos_label=pos_label, zero_division=0))
         if score > best_f1:
             best_f1 = score
             best_t = float(t)

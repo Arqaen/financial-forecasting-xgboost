@@ -13,6 +13,7 @@ if str(_CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(_CURRENT_DIR))
 
 from src.config import (
+    CLASS_ZERO_WEIGHT,
     DEFAULT_FEATURES,
     DEFAULT_HORIZON,
     DO_RANDOM_SEARCH,
@@ -20,6 +21,8 @@ from src.config import (
     FECHA_OBJETIVO,
     METRICS_DIR,
     MIN_HISTORY_RATIO,
+    THRESHOLD_CLASS,
+    TUNING_OBJECTIVE,
 )
 from src.data_loader import load_raw_dataset
 from src.explainability import train_final_model_and_explain
@@ -89,6 +92,9 @@ def run_pipeline(
     experiment_name: Optional[str] = None,
     run_name: Optional[str] = None,
     registered_model_name: Optional[str] = None,
+    threshold_class: int = THRESHOLD_CLASS,
+    class_zero_weight: float = CLASS_ZERO_WEIGHT,
+    tuning_objective: str = TUNING_OBJECTIVE,
 ) -> None:
     """Run specified or all stages of the financial machine learning pipeline.
 
@@ -107,6 +113,9 @@ def run_pipeline(
         experiment_name: MLflow experiment (CLI overrides environment variables).
         run_name: Optional display name for this pipeline execution.
         registered_model_name: Optional Model Registry name for the final model.
+        threshold_class: Class whose F1 is maximized in temporal threshold selection.
+        class_zero_weight: Training sample weight for observations labeled 0.
+        tuning_objective: Scoring metric when random search is enabled.
     """
     load_dotenv(_CURRENT_DIR.parent / ".env", override=False)
     if stage not in ("all", "eda", "walk-forward", "rollout", "explain"):
@@ -126,6 +135,9 @@ def run_pipeline(
             "end_date": end_date,
             "min_history": min_history,
             "do_random_search": do_random_search,
+            "threshold_class": threshold_class,
+            "class_zero_weight": class_zero_weight,
+            "tuning_objective": tuning_objective,
             "requested_features": ",".join(features or DEFAULT_FEATURES),
         }
     ):
@@ -140,6 +152,9 @@ def run_pipeline(
             clean_metrics,
             out_dir,
             tracker,
+            threshold_class,
+            class_zero_weight,
+            tuning_objective,
         )
 
 
@@ -154,6 +169,9 @@ def _execute_pipeline(
     clean_metrics: bool,
     out_dir: Optional[Path],
     tracker: ExperimentTracker,
+    threshold_class: int,
+    class_zero_weight: float,
+    tuning_objective: str,
 ) -> None:
     """Execute stages within the pipeline's tracking context."""
     output_dir = out_dir or METRICS_DIR
@@ -198,6 +216,9 @@ def _execute_pipeline(
                 horizon=horizon,
                 out_dir=output_dir,
                 do_random_search=do_random_search,
+                threshold_class=threshold_class,
+                class_zero_weight=class_zero_weight,
+                tuning_objective=tuning_objective,
                 tracker=tracker,
             )
             tracker.log_frame(predictions, "predictions.csv")
@@ -214,6 +235,8 @@ def _execute_pipeline(
                 horizon=horizon,
                 out_dir=output_dir,
                 tracker=tracker,
+                threshold_class=threshold_class,
+                class_zero_weight=class_zero_weight,
             )
             if rollout is not None:
                 tracker.log_frame(rollout, "predictions.csv")
@@ -230,6 +253,7 @@ def _execute_pipeline(
                 valid_features,
                 horizon=horizon,
                 out_dir=output_dir,
+                class_zero_weight=class_zero_weight,
             )
             tracker.log_metrics(diagnostics)
             tracker.log_dict(
@@ -290,6 +314,25 @@ def parse_args() -> argparse.Namespace:
         help="Enable random search hyperparameter tuning",
     )
     parser.add_argument(
+        "--threshold-class",
+        type=int,
+        choices=[0, 1],
+        default=THRESHOLD_CLASS,
+        help="Class whose F1 selects the walk-forward and rollout decision threshold",
+    )
+    parser.add_argument(
+        "--class-zero-weight",
+        type=float,
+        default=CLASS_ZERO_WEIGHT,
+        help="Weight of class 0 training samples (class 1 has weight 1)",
+    )
+    parser.add_argument(
+        "--tuning-objective",
+        choices=["logloss", "AP_0"],
+        default=TUNING_OBJECTIVE,
+        help="Walk-forward random search selection metric",
+    )
+    parser.add_argument(
         "--no-clean",
         action="store_true",
         help="Do not wipe the metrics directory prior to running",
@@ -325,4 +368,7 @@ if __name__ == "__main__":
         experiment_name=args.experiment_name,
         run_name=args.run_name,
         registered_model_name=args.registered_model_name,
+        threshold_class=args.threshold_class,
+        class_zero_weight=args.class_zero_weight,
+        tuning_objective=args.tuning_objective,
     )

@@ -34,6 +34,8 @@ def test_train_final_model_and_explain(tmp_path: Path) -> None:
     assert "last_date" in diagnostics
     assert "final_proba" in diagnostics
     assert "in_sample_auc" in diagnostics
+    assert 0 <= diagnostics["in_sample_AP_0"] <= 1
+    assert 0 <= diagnostics["in_sample_recall_0"] <= 1
     assert "in_sample_logloss" in diagnostics
     assert "in_sample_brier" in diagnostics
     assert "historical_percentile" in diagnostics

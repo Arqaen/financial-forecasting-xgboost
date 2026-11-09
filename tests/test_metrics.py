@@ -2,11 +2,13 @@
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from models.src.metrics import (
     best_threshold_by_f1,
     binary_logloss,
     brier_decomposition,
+    class_zero_metrics,
     compute_calibration_deciles_table,
     compute_exposure_turnover,
     compute_return_risk_metrics,
@@ -19,6 +21,39 @@ from models.src.metrics import (
     max_drawdown_from_equity,
     precision_at_k,
 )
+
+
+def test_class_zero_metrics_orientation_and_saved_predictions() -> None:
+    """Class 0 ranks first and third, while one of its two cases is detected."""
+    actual = [0, 1, 0, 1, 1]
+    proba_up = [0.1, 0.2, 0.7, 0.8, 0.9]
+    metrics = class_zero_metrics(actual, proba_up, [0, 0, 1, 1, 1])
+    assert metrics["AP_0"] == pytest.approx(5 / 6)
+    assert metrics["recall_0"] == 0.5
+    assert metrics["precision_0"] == metrics["F1_0"] == 0.5
+    assert metrics["detected_0"] == metrics["false_alarms_0"] == 1
+    # Recall must use the supplied decisions rather than an implicit 0.5 cutoff.
+    assert class_zero_metrics(actual, proba_up, [1] * 5)["recall_0"] == 0.0
+
+
+@pytest.mark.parametrize("actual", [[], [1, 1, 1]])
+def test_class_zero_metrics_without_actual_zeros(actual) -> None:
+    metrics = class_zero_metrics(actual, [0.8] * len(actual), [1] * len(actual))
+    assert all(np.isnan(metrics[key]) for key in ("AP_0", "recall_0", "precision_0", "F1_0"))
+    assert metrics["detected_0"] == metrics["false_alarms_0"] == 0
+
+
+def test_class_zero_false_alarm_in_positive_only_period() -> None:
+    metrics = class_zero_metrics([1, 1], [0.4, 0.8], [0, 1])
+    assert np.isnan(metrics["recall_0"]) and np.isnan(metrics["AP_0"])
+    assert metrics["false_alarms_0"] == 1
+    assert metrics["precision_0"] == metrics["F1_0"] == metrics["detected_0"] == 0
+
+
+def test_class_zero_metrics_all_zero_targets() -> None:
+    metrics = class_zero_metrics([0, 0], [0.2, 0.8], [0, 1])
+    assert metrics["AP_0"] == 1.0 and metrics["recall_0"] == 0.5
+    assert metrics["F1_0"] == pytest.approx(2 / 3)
 
 
 def test_binary_logloss_known_values() -> None:
@@ -52,6 +87,17 @@ def test_best_threshold_by_f1() -> None:
     single_class_t, single_class_f1 = best_threshold_by_f1(pd.Series([1, 1, 1]), y_proba[:3])
     assert single_class_t == 0.5
     assert np.isnan(single_class_f1)
+
+
+def test_threshold_objective_can_favor_negatives() -> None:
+    actual = [1, 1, 0, 1, 1]
+    p_up = [0.2, 0.3, 0.6, 0.8, 0.9]
+    cuts = np.array([0.2, 0.7, 0.8])
+    assert best_threshold_by_f1(actual, p_up, thresholds=cuts)[0] == 0.2
+    # Both higher cutoffs detect the negative and raise two false alarms.
+    assert best_threshold_by_f1(actual, p_up, pos_label=0, thresholds=cuts) == (0.7, 0.5)
+    cutoff, score = best_threshold_by_f1([0, 0], [0.2, 0.3], pos_label=0)
+    assert cutoff == 0.5 and np.isnan(score)
 
 
 def test_precision_and_lift_at_k() -> None:

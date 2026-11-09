@@ -211,8 +211,9 @@ Final:  [================ Full Historical Training ================][-- Gap --][
 ### XGBoost Optimization & Dynamic Threshold Tuning
 
 - **Base Estimator:** `XGBClassifier` with histogram-based tree splitting (`tree_method = "hist"`), log-loss objective (`binary:logistic`), and tree depth limits to prevent overfitting.
+- The default manual model uses depth 2, equal training weights and a validation threshold chosen by F1 for class 1. To reproduce the comparison of negative alerts across depth, class weights and threshold objectives, run `python -m scripts.compare_negative_policies`. The experiment logs development and evaluation metrics separately in MLflow.
 - **Regularization:** L1 penalty (`reg_alpha`), L2 penalty (`reg_lambda`), conservative learning rates ($\eta \in [0.03, 0.07]$), and sub-sampling ratios (`subsample = 0.9`, `colsample_bytree = 0.8`).
-- **Dynamic Decision Threshold ($p^*$):** Instead of assuming a naive $p = 0.5$ classification cutoff, the engine searches for the threshold $p^* \in [0.20, 0.80]$ that maximizes the $F_1$-score on internal temporal validation data, preventing class-imbalance distortion.
+- **Decision threshold:** Each walk-forward fold and the final rollout select a cutoff on the estimated probability of class 1. The search tests 50 cutoffs from 0.10 to 0.90 on historical validation data and maximizes F1 for the class selected by `--threshold-class`. A validation block with one class uses 0.50.
 
 ---
 

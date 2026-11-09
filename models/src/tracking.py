@@ -60,6 +60,7 @@ class ExperimentTracker:
         if mlflow.active_run() is not None:
             raise RuntimeError("Finish the active MLflow run before starting the pipeline.")
         previous_uri = mlflow.get_tracking_uri()
+        previous_env_uri = os.environ.get("MLFLOW_TRACKING_URI")
         self._mlflow = mlflow
         try:
             if self.tracking_uri is None:
@@ -93,7 +94,14 @@ class ExperimentTracker:
                 yield self
         finally:
             self._mlflow = None
-            mlflow.set_tracking_uri(previous_uri)
+            try:
+                mlflow.set_tracking_uri(previous_uri)
+            finally:
+                # MLflow also sets the subprocess environment when changing the fluent URI.
+                if previous_env_uri is None:
+                    os.environ.pop("MLFLOW_TRACKING_URI", None)
+                else:
+                    os.environ["MLFLOW_TRACKING_URI"] = previous_env_uri
 
     @contextmanager
     def stage(self, name: str, out_dir: Path) -> Iterator["ExperimentTracker"]:

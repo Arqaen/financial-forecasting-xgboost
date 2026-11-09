@@ -16,13 +16,15 @@ except ImportError:
     _HAS_SHAP = False
 
 from .config import (
+    CLASS_ZERO_WEIGHT,
     DEFAULT_HORIZON,
     FINAL_FIXED_PARAMS,
     MANUAL_PARAMS_BASE,
     METRICS_DIR,
     TOP_SHAP_FEATURES,
 )
-from .metrics import binary_logloss, precision_at_k
+from .metrics import binary_logloss, class_zero_metrics, precision_at_k
+from .tuning import training_sample_weights
 
 
 def train_final_model_and_explain(
@@ -30,6 +32,7 @@ def train_final_model_and_explain(
     features: List[str],
     *,
     horizon: int = DEFAULT_HORIZON,
+    class_zero_weight: float = CLASS_ZERO_WEIGHT,
     top_shap_features: Optional[List[str]] = None,
     out_dir: Optional[Path] = None,
 ) -> Tuple[XGBClassifier, float, Dict]:
@@ -39,6 +42,7 @@ def train_final_model_and_explain(
         df: Prepared modeling DataFrame.
         features: Predictive feature columns.
         horizon: Forecast horizon in months.
+        class_zero_weight: Relative weight of negative training examples.
         top_shap_features: Subset of features for which to produce SHAP dependence interaction plots.
         out_dir: Output directory for saving SHAP plots.
 
@@ -56,7 +60,7 @@ def train_final_model_and_explain(
     final_model_params.update(MANUAL_PARAMS_BASE)
 
     final_model = XGBClassifier(**final_model_params)
-    final_model.fit(X, y)
+    final_model.fit(X, y, sample_weight=training_sample_weights(y, class_zero_weight))
 
     last_X = X.iloc[[-1]]
     final_proba = float(final_model.predict_proba(last_X)[:, 1][0])
@@ -68,6 +72,7 @@ def train_final_model_and_explain(
     final_brier = float(brier_score_loss(y, final_proba_all))
     final_precision_top20 = precision_at_k(y, final_proba_all, top_frac=0.2)
     final_auc = float(roc_auc_score(y, final_proba_all)) if len(np.unique(y)) > 1 else float("nan")
+    zero_metrics = class_zero_metrics(y, final_proba_all, final_model.predict(X))
 
     hist_mean = float(np.nanmean(final_proba_all))
     hist_std = float(np.nanstd(final_proba_all, ddof=0))
@@ -78,6 +83,8 @@ def train_final_model_and_explain(
         "last_date": last_date,
         "final_proba": final_proba,
         "in_sample_auc": final_auc,
+        "in_sample_AP_0": zero_metrics["AP_0"],
+        "in_sample_recall_0": zero_metrics["recall_0"],
         "in_sample_logloss": final_logloss,
         "in_sample_brier": final_brier,
         "precision_top20": final_precision_top20,

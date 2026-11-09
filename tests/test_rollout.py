@@ -1,9 +1,11 @@
 """Unit tests for final out-of-sample rollout validation and regime evaluation."""
 
 from pathlib import Path
+from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
+from sklearn.metrics import average_precision_score, recall_score
 
 from models.src.rollout import run_final_rollout
 
@@ -48,6 +50,7 @@ def test_run_final_rollout_execution(tmp_path: Path) -> None:
         index=dates,
     )
 
+    tracker = Mock()
     roll_df = run_final_rollout(
         df,
         features=["f1", "f2"],
@@ -56,6 +59,7 @@ def test_run_final_rollout_execution(tmp_path: Path) -> None:
         gap_months=4,
         min_train_size=20,
         out_dir=tmp_path,
+        tracker=tracker,
     )
 
     assert roll_df is not None
@@ -65,6 +69,16 @@ def test_run_final_rollout_execution(tmp_path: Path) -> None:
     assert "pred" in roll_df.columns
     assert "close_t" in roll_df.columns
     assert "close_t_plus_h" in roll_df.columns
+    summary = next(
+        call.args[0] for call in tracker.log_metrics.call_args_list if "AP_0" in call.args[0]
+    )
+    assert np.isclose(
+        summary["AP_0"],
+        average_precision_score(roll_df["actual"], 1 - roll_df["proba_up"], pos_label=0),
+    )
+    assert np.isclose(
+        summary["recall_0"], recall_score(roll_df["actual"], roll_df["pred"], pos_label=0)
+    )
 
     # Verify diagnostic figures created in out_dir
     assert (tmp_path / "final_rollout_ranking_metrics.png").exists()

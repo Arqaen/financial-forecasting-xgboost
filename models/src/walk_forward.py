@@ -19,6 +19,7 @@ from sklearn.metrics import (
 from xgboost import XGBClassifier
 
 from .config import (
+    CLASS_ZERO_WEIGHT,
     DEFAULT_HORIZON,
     DO_RANDOM_SEARCH,
     FIXED_PARAMS_BASE,
@@ -32,12 +33,15 @@ from .config import (
     SCORE_FRAC,
     SIGNAL_MULTIPLIER,
     TEST_SIZE,
+    THRESHOLD_CLASS,
     TUNE_EACH_FOLD,
+    TUNING_OBJECTIVE,
 )
 from .metrics import (
     best_threshold_by_f1,
     binary_logloss,
     brier_decomposition,
+    class_zero_metrics,
     compute_exposure_turnover,
     compute_return_risk_metrics,
     compute_signal_stability_metrics,
@@ -63,7 +67,7 @@ from .plots import (
 )
 from .simulation import simulate_monthly_dca_roi, simulate_value_averaging_modified_roi
 from .tracking import ExperimentTracker
-from .tuning import tune_xgb_random_search_timeval
+from .tuning import fit_temporal_classifier, tune_xgb_random_search_timeval
 
 
 def generate_folds(
@@ -160,7 +164,11 @@ def run_walk_forward_evaluation(
     test_size: int = TEST_SIZE,
     out_dir: Optional[Path] = None,
     do_random_search: bool = DO_RANDOM_SEARCH,
+    class_zero_weight: float = CLASS_ZERO_WEIGHT,
+    manual_params: Optional[Dict] = None,
+    tuning_objective: str = TUNING_OBJECTIVE,
     tracker: Optional[ExperimentTracker] = None,
+    threshold_class: int = THRESHOLD_CLASS,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Execute purged walk-forward temporal cross-validation with out-of-sample evaluation.
 
@@ -172,7 +180,11 @@ def run_walk_forward_evaluation(
         test_size: Out-of-sample test window in months.
         out_dir: Directory to save generated diagnostic plots and scorecards.
         do_random_search: Whether to run random search on validation folds.
+        class_zero_weight: Relative weight of negative training examples.
+        tuning_objective: Score used to select random-search candidates (logloss or AP_0).
         tracker: Optional tracker owned by the pipeline orchestrator.
+        threshold_class: Class whose F1 selects the cutoff on P(1) in validation.
+        manual_params: Overrides for the manual XGBoost parameters.
 
     Returns:
         Tuple containing (wf_df_predictions, wf_metrics_scorecard).
@@ -183,6 +195,7 @@ def run_walk_forward_evaluation(
     aucs: List[float] = []
     loglosses: List[float] = []
     ap_scores: List[float] = []
+    ap_scores_0: List[float] = []
     briers: List[float] = []
     balanced_accs: List[float] = []
     mccs: List[float] = []
@@ -206,6 +219,7 @@ def run_walk_forward_evaluation(
     all_thresholds: List[float] = []
 
     best_params_global: Optional[Dict] = None
+    cached_tuning_metric: Optional[str] = None
 
     folds = generate_folds(
         n=len(df),
@@ -222,6 +236,9 @@ def run_walk_forward_evaluation(
                 "test_size": test_size,
                 "purge": horizon,
                 "folds": len(folds),
+                "class_zero_weight": class_zero_weight,
+                "tuning_objective": tuning_objective,
+                "threshold_objective": f"F1_{threshold_class}",
                 "tune_each_fold": TUNE_EACH_FOLD,
                 "random_search_iterations": RANDOM_SEARCH_N_ITER,
                 "random_search_seed": RANDOM_SEARCH_SEED,
@@ -230,6 +247,7 @@ def run_walk_forward_evaluation(
 
     for fold_index, (train_slice, test_slice) in enumerate(folds):
         model = None
+        tuning_metric = None
         train_df = df.iloc[train_slice]
         test_df = df.iloc[test_slice]
 
@@ -261,11 +279,17 @@ def run_walk_forward_evaluation(
             y_pred = (proba >= best_t).astype(int)
         else:
             fixed_params = dict(FIXED_PARAMS_BASE)
-            manual_params = dict(MANUAL_PARAMS_BASE)
+            configured_params = {**MANUAL_PARAMS_BASE, **(manual_params or {})}
 
+            score_metric = tuning_objective if y_score.nunique() >= 2 else "logloss"
             if not do_random_search:
-                best_params = manual_params
-            elif do_random_search and (TUNE_EACH_FOLD or best_params_global is None):
+                best_params = configured_params
+            elif not X_score.empty and (
+                TUNE_EACH_FOLD
+                or best_params_global is None
+                or (score_metric == "AP_0" and cached_tuning_metric != "AP_0")
+            ):
+                tuning_metric = score_metric
                 best_params, _ = tune_xgb_random_search_timeval(
                     X_tr,
                     y_tr,
@@ -277,27 +301,29 @@ def run_walk_forward_evaluation(
                     param_dist=PARAM_DIST,
                     n_iter=RANDOM_SEARCH_N_ITER,
                     random_state=RANDOM_SEARCH_SEED,
+                    class_zero_weight=class_zero_weight,
+                    tuning_objective=tuning_objective,
                 )
                 if not TUNE_EACH_FOLD:
                     best_params_global = best_params
+                    cached_tuning_metric = score_metric
             else:
-                best_params = best_params_global or {}
+                best_params = best_params_global or configured_params
+                tuning_metric = cached_tuning_metric
 
             model_params = dict(fixed_params)
             model_params.update(best_params)
 
             model = XGBClassifier(**model_params)
-            if len(np.unique(y_es)) < 2:
-                model.set_params(early_stopping_rounds=None)
-                model.fit(X_tr, y_tr, verbose=False)
-            else:
-                model.fit(X_tr, y_tr, eval_set=[(X_es, y_es)], verbose=False)
+            fit_temporal_classifier(
+                model, X_tr, y_tr, X_es, y_es, class_zero_weight=class_zero_weight
+            )
 
             if len(X_score) < 1:
                 best_t, _ = 0.5, float("nan")
             else:
                 score_proba = model.predict_proba(X_score)[:, 1]
-                best_t, _ = best_threshold_by_f1(y_score, score_proba)
+                best_t, _ = best_threshold_by_f1(y_score, score_proba, pos_label=threshold_class)
 
             proba = model.predict_proba(X_test)[:, 1]
             y_pred = (proba >= best_t).astype(int)
@@ -320,7 +346,9 @@ def run_walk_forward_evaluation(
         mccs.append(float(matthews_corrcoef(y_test, y_pred)))
         precisions.append(float(precision_score(y_test, y_pred, zero_division=0)))
         recalls.append(float(recall_score(y_test, y_pred, zero_division=0)))
-        recalls_0.append(float(recall_score(y_test, y_pred, pos_label=0, zero_division=0)))
+        zero_metrics = class_zero_metrics(y_test, proba, y_pred)
+        ap_scores_0.append(zero_metrics["AP_0"])
+        recalls_0.append(zero_metrics["recall_0"])
         f1s.append(float(f1_score(y_test, y_pred, zero_division=0)))
         accuracies.append(float(accuracy_score(y_test, y_pred)))
         precision_at_top20s.append(precision_at_k(y_test, proba, top_frac=0.2))
@@ -339,6 +367,7 @@ def run_walk_forward_evaluation(
             tracker.log_metrics(
                 {
                     "fold.auc": aucs[-1],
+                    **{f"fold.{key}": value for key, value in zero_metrics.items()},
                     "fold.logloss": loglosses[-1],
                     "fold.brier": briers[-1],
                     "fold.f1": f1s[-1],
@@ -357,13 +386,20 @@ def run_walk_forward_evaluation(
                     "threshold": float(best_t),
                     "model_params": model.get_params() if model is not None else {},
                     "constant_predictor": model is None,
+                    "parameter_selection_metric": tuning_metric,
                 },
                 f"folds/fold_{fold_index:03d}.json",
             )
 
+    pooled_zero_metrics = class_zero_metrics(all_actuals, all_proba, all_pred)
+    ap_0_mean = float(np.nanmean(ap_scores_0)) if np.isfinite(ap_scores_0).any() else float("nan")
+    recall_0_mean = float(np.nanmean(recalls_0)) if np.isfinite(recalls_0).any() else float("nan")
     if tracker is not None:
         tracker.log_metrics(
             {
+                **pooled_zero_metrics,
+                "AP_0_mean": ap_0_mean,
+                "recall_0_mean": recall_0_mean,
                 "auc_mean": float(np.nanmean(aucs)),
                 "pr_auc_mean": float(np.nanmean(ap_scores)),
                 "logloss_mean": float(np.nanmean(loglosses)),
@@ -389,13 +425,20 @@ def run_walk_forward_evaluation(
             "Valor": [
                 float(np.nanmean(aucs)),
                 float(np.nanmean(ap_scores)),
+                ap_0_mean,
+                pooled_zero_metrics["AP_0"],
+                pooled_zero_metrics["recall_0"],
+                pooled_zero_metrics["precision_0"],
+                pooled_zero_metrics["F1_0"],
+                pooled_zero_metrics["detected_0"],
+                pooled_zero_metrics["false_alarms_0"],
                 float(np.nanmean(loglosses)),
                 float(np.nanmean(briers)),
                 float(np.nanmean(balanced_accs)),
                 float(np.nanmean(mccs)),
                 float(np.nanmean(precisions)),
                 float(np.nanmean(recalls)),
-                float(np.nanmean(recalls_0)),
+                recall_0_mean,
                 float(np.nanmean(f1s)),
                 float(np.nanmean(accuracies)),
                 float(np.nanmean(precision_at_top20s)),
@@ -405,6 +448,13 @@ def run_walk_forward_evaluation(
         index=[
             "ROC-AUC (mean)",
             "PR-AUC / AvgPrecision (mean)",
+            "AP clase 0 (mean)",
+            "AP_0 (pooled OOS)",
+            "recall_0 (pooled OOS)",
+            "precision_0 (pooled OOS)",
+            "F1_0 (pooled OOS)",
+            "detected_0 (pooled OOS)",
+            "false_alarms_0 (pooled OOS)",
             "LogLoss (mean)",
             "Brier score (mean)",
             "Balanced Accuracy (mean)",

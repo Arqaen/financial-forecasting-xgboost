@@ -2,11 +2,13 @@
 
 from pathlib import Path
 from typing import Tuple
+from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
 from hypothesis import given, settings
 from hypothesis import strategies as st
+from sklearn.metrics import average_precision_score, recall_score
 
 from models.src.walk_forward import (
     generate_folds,
@@ -205,6 +207,7 @@ def test_run_walk_forward_evaluation_execution(tmp_path: Path) -> None:
 
     features = ["f1", "f2"]
 
+    tracker = Mock()
     wf_df, scorecard = run_walk_forward_evaluation(
         df,
         features=features,
@@ -213,6 +216,7 @@ def test_run_walk_forward_evaluation_execution(tmp_path: Path) -> None:
         test_size=4,
         out_dir=tmp_path,
         do_random_search=False,
+        tracker=tracker,
     )
 
     assert not wf_df.empty
@@ -227,6 +231,18 @@ def test_run_walk_forward_evaluation_execution(tmp_path: Path) -> None:
     assert "ROC-AUC (mean)" in scorecard.index
     assert "LogLoss (mean)" in scorecard.index
     assert "Brier score (mean)" in scorecard.index
+    expected_ap = average_precision_score(wf_df["actual"], 1 - wf_df["proba_up"], pos_label=0)
+    expected_recall = recall_score(wf_df["actual"], wf_df["pred"], pos_label=0)
+    assert np.isclose(scorecard.loc["AP_0 (pooled OOS)", "Valor"], expected_ap)
+    assert np.isclose(scorecard.loc["recall_0 (pooled OOS)", "Valor"], expected_recall)
+    summary = next(
+        call.args[0] for call in tracker.log_metrics.call_args_list if "AP_0" in call.args[0]
+    )
+    assert np.isclose(summary["AP_0"], expected_ap)
+    assert np.isclose(summary["recall_0"], expected_recall)
+    folds = [call for call in tracker.log_metrics.call_args_list if "fold.AP_0" in call.args[0]]
+    assert len(folds) > 1
+    assert all("fold.recall_0" in call.args[0] for call in folds)
 
     # Verify generated plot and scorecard PNG files in out_dir
     assert (tmp_path / "walk_forward_metrics_scorecard.png").exists()

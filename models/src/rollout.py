@@ -16,6 +16,7 @@ from sklearn.metrics import (
 from xgboost import XGBClassifier
 
 from .config import (
+    CLASS_ZERO_WEIGHT,
     DEFAULT_HORIZON,
     FINAL_GAP_MONTHS,
     FINAL_ROLLOUT_MONTHS,
@@ -26,11 +27,13 @@ from .config import (
     MONTHLY_AMOUNT,
     SCORE_FRAC,
     SIGNAL_MULTIPLIER,
+    THRESHOLD_CLASS,
 )
 from .metrics import (
     best_threshold_by_f1,
     binary_logloss,
     brier_decomposition,
+    class_zero_metrics,
     compute_calibration_deciles_table,
     compute_exposure_turnover,
     compute_return_risk_metrics,
@@ -52,6 +55,7 @@ from .plots import (
 )
 from .simulation import simulate_monthly_dca_roi
 from .tracking import ExperimentTracker
+from .tuning import fit_temporal_classifier
 
 
 def run_final_rollout(
@@ -62,8 +66,11 @@ def run_final_rollout(
     rollout_months: int = FINAL_ROLLOUT_MONTHS,
     gap_months: int = FINAL_GAP_MONTHS,
     min_train_size: int = MIN_TRAIN_SIZE,
+    class_zero_weight: float = CLASS_ZERO_WEIGHT,
+    manual_params: Optional[Dict] = None,
     out_dir: Optional[Path] = None,
     tracker: Optional[ExperimentTracker] = None,
+    threshold_class: int = THRESHOLD_CLASS,
 ) -> Optional[pd.DataFrame]:
     """Evaluate model performance on an untouched out-of-sample period (e.g. final 10 years).
 
@@ -77,8 +84,11 @@ def run_final_rollout(
         rollout_months: Length of final out-of-sample testing window in months.
         gap_months: Temporal gap between training end and rollout start.
         min_train_size: Minimum required historical observations for training.
+        class_zero_weight: Relative weight of negative training examples.
         out_dir: Output directory for saving figures and tables.
         tracker: Optional tracker owned by the pipeline orchestrator.
+        threshold_class: Class whose F1 selects the cutoff on P(1) in validation.
+        manual_params: Overrides for the manual XGBoost parameters.
 
     Returns:
         DataFrame of rollout predictions or None if insufficient history.
@@ -139,24 +149,18 @@ def run_final_rollout(
         roll_proba = np.full(len(X_roll), p_const, dtype=float)
         roll_pred = (roll_proba >= best_t_roll).astype(int)
     else:
-        fixed_params = dict(FIXED_PARAMS_BASE)
-        manual_params = dict(MANUAL_PARAMS_BASE)
-
-        model_params = dict(fixed_params)
-        model_params.update(manual_params)
+        model_params = {**FIXED_PARAMS_BASE, **MANUAL_PARAMS_BASE, **(manual_params or {})}
 
         model_roll = XGBClassifier(**model_params)
-        if len(np.unique(y_es)) < 2:
-            model_roll.set_params(early_stopping_rounds=None)
-            model_roll.fit(X_tr, y_tr, verbose=False)
-        else:
-            model_roll.fit(X_tr, y_tr, eval_set=[(X_es, y_es)], verbose=False)
+        fit_temporal_classifier(
+            model_roll, X_tr, y_tr, X_es, y_es, class_zero_weight=class_zero_weight
+        )
 
         if len(X_score) < 1:
             best_t_roll, _ = 0.5, float("nan")
         else:
             score_proba = model_roll.predict_proba(X_score)[:, 1]
-            best_t_roll, _ = best_threshold_by_f1(y_score, score_proba)
+            best_t_roll, _ = best_threshold_by_f1(y_score, score_proba, pos_label=threshold_class)
 
         roll_proba = model_roll.predict_proba(X_roll)[:, 1]
         roll_pred = (roll_proba >= best_t_roll).astype(int)
@@ -168,6 +172,7 @@ def run_final_rollout(
     roll_precision_top20 = precision_at_k(y_roll, roll_proba, top_frac=0.2)
     roll_lift_top20 = lift_at_k(y_roll, roll_proba, top_frac=0.2)
     roll_recall_0 = float(recall_score(y_roll, roll_pred, pos_label=0, zero_division=0))
+    zero_metrics = class_zero_metrics(y_roll, roll_proba, roll_pred)
     roll_threshold_cm = confusion_matrix_by_thresholds(y_roll, roll_proba)
 
     if len(np.unique(y_roll)) > 1:
@@ -185,8 +190,10 @@ def run_final_rollout(
             {
                 "rollout_months": rollout_months,
                 "gap_months": gap_months,
+                "class_zero_weight": class_zero_weight,
                 "train_end": str(train_df.index.max()),
                 "threshold": float(best_t_roll),
+                "threshold_objective": f"F1_{threshold_class}",
                 "constant_predictor": model_roll is None,
             }
         )
@@ -195,6 +202,7 @@ def run_final_rollout(
         tracker.log_metrics(
             {
                 "auc": roll_auc,
+                **zero_metrics,
                 "pr_auc": roll_ap,
                 "logloss": roll_logloss,
                 "brier": roll_brier,
@@ -213,7 +221,8 @@ def run_final_rollout(
                 roll_base_rate,
                 roll_precision_top20,
                 roll_lift_top20,
-                roll_recall_0,
+                zero_metrics["recall_0"],
+                zero_metrics["AP_0"],
             ]
         },
         index=[
@@ -221,6 +230,7 @@ def run_final_rollout(
             "Precision@top20%",
             "Lift@top20%",
             "Recall clase 0",
+            "AP_0",
         ],
     )
     save_table_figure(

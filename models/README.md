@@ -74,7 +74,7 @@ Macroeconomic indicators (e.g. GDP, Unemployment, Housing Starts, Money Supply) 
 Financial time series violate the I.I.D. assumption. To prevent information leakage caused by overlapping multi-month forward returns, training folds are purged of overlapping observations prior to each test fold.
 
 ### 3. Validation-Based Decision Threshold Optimization
-Rather than assuming a rigid 0.5 classification threshold, optimal decision thresholds are calibrated purely on past out-of-sample validation folds to maximize F1 score.
+Walk-forward and rollout select the threshold on a historical validation block within the training window. Use `--threshold-class 0` to maximize F1 for negative alerts, or `--threshold-class 1` to maximize F1 for increases. Compare the number of detected negatives and false alarms alongside `AP_0` and `F1_0` in MLflow.
 
 ### 4. Rigorous Probabilistic Calibration
 Beyond standard accuracy, predictions are evaluated through:

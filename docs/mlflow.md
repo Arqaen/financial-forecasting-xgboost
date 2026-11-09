@@ -35,6 +35,38 @@ propagate and mark the affected stage and parent run as `FAILED`.
 Full-dataset diagnostics in `explain` are in-sample; compare generalization using
 `walk-forward` and `rollout` instead.
 
+For the minority class 0, compare `AP_0` (average precision using `1 - proba_up`)
+and `recall_0` (recall using the saved predictions and their validation-selected
+thresholds). Both are higher-is-better. In walk-forward runs these summarize all
+out-of-sample predictions together; `AP_0_mean` and `recall_0_mean` are unweighted
+means across folds, and `fold.AP_0` / `fold.recall_0` record their histories.
+Folds with no actual zeros are undefined and omitted from these means and from
+MLflow; an all-zero fold has AP 1. `pr_auc_mean` still measures class 1.
+The `explain` stage labels these metrics `in_sample_AP_0` and
+`in_sample_recall_0`; its classifier uses its default decision threshold.
+For the decisions themselves, compare pooled `F1_0`, `precision_0`,
+`detected_0` and `false_alarms_0`. A false alarm is a predicted 0 whose actual
+label is 1. Counts include all months, including folds with no actual zeros.
+
+Use `--threshold-class 0` or `1` to select which class's F1 determines the
+cutoff within each training window. The cutoff is on the score for class 1.
+Use `--class-zero-weight` to change the training weight of class 0 (class 1 has
+weight 1). Validation and test metrics use the observed class distribution.
+With `--random-search --tuning-objective AP_0`, walk-forward selects model
+parameters by class-0 average precision on temporal validation data. A
+single-class scoring block falls back to log loss. With tuning once, the
+first subsequent scoring block containing both classes can select by AP_0.
+
+To reproduce the 36-month comparison, run `python -m scripts.compare_negative_policies`
+from the repository root and open the `class-zero-policies-h36` experiment.
+Compare `development.F1_0` through December 2001 with `evaluation.F1_0`,
+`evaluation.detected_0` and `evaluation.false_alarms_0` from January 2005
+onward. The intervening three years allow the development labels to mature.
+On the repository dataset the unweighted depth-2 model detected 17 of the
+34 negatives in the later period, with 8 false alarms. Doubling the training
+weight improved AP for class 0 but detected 13 negatives with 6 false alarms.
+These periods are historical and the monthly 36-month outcomes overlap.
+
 Tracking uses explicit logging rather than autologging. Temporal splits, purging,
 hyperparameter selection and training behavior remain controlled by the existing code.
 Calling the validation functions directly does not create runs; the orchestrator passes

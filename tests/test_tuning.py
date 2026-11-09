@@ -1,7 +1,10 @@
 """Unit tests for time-aware XGBoost hyperparameter tuning."""
 
+from unittest.mock import Mock, patch
+
 import numpy as np
 import pandas as pd
+import pytest
 
 from models.src.config import PARAM_DIST
 from models.src.tuning import sample_param_combo, tune_xgb_random_search_timeval
@@ -61,3 +64,54 @@ def test_tune_xgb_random_search_timeval() -> None:
     assert "max_depth" in best_params
     assert np.isfinite(best_ll)
     assert best_ll > 0.0
+
+
+@pytest.mark.parametrize(
+    ("labels", "objective", "selected"),
+    [
+        ([0, 1, 0, 1], "AP_0", 2),
+        ([0, 1, 0, 1], "logloss", 1),
+        ([1, 1, 1, 1], "AP_0", 1),
+    ],
+)
+def test_selection_objective_and_training_weights(
+    labels: list[int], objective: str, selected: int
+) -> None:
+    # The second candidate ranks both negatives first but has poorly calibrated probabilities.
+    X = pd.DataFrame({"x": [0, 1, 2, 3]})
+    y_train = pd.Series([0, 1, 0, 1])
+    first, second = Mock(), Mock()
+    for model, probs in ((first, [0.2, 0.3, 0.4, 0.7]), (second, [0.01, 0.03, 0.02, 0.04])):
+        model.predict_proba.return_value = np.column_stack([1 - np.array(probs), probs])
+    with (
+        patch("models.src.tuning.XGBClassifier", side_effect=[first, second]),
+        patch(
+            "models.src.tuning.sample_param_combo", side_effect=[{"max_depth": 1}, {"max_depth": 2}]
+        ),
+    ):
+        params, score = tune_xgb_random_search_timeval(
+            X,
+            y_train,
+            X,
+            y_train,
+            X,
+            pd.Series(labels),
+            fixed_params={},
+            param_dist={},
+            n_iter=2,
+            class_zero_weight=3,
+            tuning_objective=objective,
+        )
+    assert params == {"max_depth": selected}
+    if selected == 2:
+        assert score == 1.0
+    else:
+        expected = np.where(
+            np.array(labels) == 1,
+            first.predict_proba.return_value[:, 1],
+            first.predict_proba.return_value[:, 0],
+        )
+        assert score == pytest.approx(-np.log(expected).mean())
+    for model in (first, second):
+        np.testing.assert_array_equal(model.fit.call_args.kwargs["sample_weight"], [3, 1, 3, 1])
+        assert "sample_weight_eval_set" not in model.fit.call_args.kwargs

@@ -25,6 +25,7 @@ MIN_TRAIN_SIZE: int = 240  # Minimum 20 years of initial training history
 TEST_SIZE: int = 12  # 1-year test folds
 VAL_SIZE_RATIO: float = 0.2  # Fraction of train fold used for internal temporal validation
 SCORE_FRAC: float = 0.5  # Split between early stopping and threshold score validation
+THRESHOLD_CLASS: int = 1  # Class whose F1 determines the validation threshold
 
 # Final roll-out evaluation window (last 10 years)
 FINAL_ROLLOUT_MONTHS: int = 120
@@ -41,15 +42,17 @@ SIGNAL_MULTIPLIER: float = 2.0
 # ==========================================
 DO_RANDOM_SEARCH: bool = False
 TUNE_EACH_FOLD: bool = False
+CLASS_ZERO_WEIGHT: float = 1.0
+TUNING_OBJECTIVE: str = "logloss"
 RANDOM_SEARCH_N_ITER: int = 180
 RANDOM_SEARCH_SEED: int = 42
 
 PARAM_DIST: Dict[str, List] = {
     "learning_rate": [0.03, 0.05, 0.07],
-    "max_depth": [4, 5],
+    "max_depth": [2, 4, 5],
     "min_child_weight": [5, 6],
     "gamma": [0.5, 1.0],
-    "reg_lambda": [8, 10, 12],
+    "reg_lambda": [8, 9, 10, 12],
     "reg_alpha": [0.05, 0.1, 0.2],
 }
 
@@ -64,7 +67,7 @@ FIXED_PARAMS_BASE: Dict = {
 
 MANUAL_PARAMS_BASE: Dict = {
     "learning_rate": 0.03,
-    "max_depth": 5,
+    "max_depth": 2,
     "min_child_weight": 5,
     "gamma": 1.0,
     "reg_lambda": 9,

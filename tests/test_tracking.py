@@ -2,6 +2,7 @@
 
 import builtins
 import json
+import os
 from pathlib import Path
 
 import mlflow
@@ -13,6 +14,7 @@ from mlflow import MlflowClient
 from xgboost import XGBClassifier
 
 from models import run_pipeline as pipeline
+from models.src import tracking
 from models.src.tracking import ExperimentTracker
 
 
@@ -69,6 +71,22 @@ def test_failed_stage_marks_parent_and_child_failed(store, tmp_path):
     assert len(runs) == 2
     assert all(run.info.status == "FAILED" for run in runs)
     assert mlflow.active_run() is None
+
+
+def test_successive_default_trackers_use_same_project_database(tmp_path, monkeypatch):
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
+    monkeypatch.setattr(tracking, "TRACKING_DIR", tmp_path)
+    expected_uri = "sqlite:///" + (tmp_path / "mlflow.db").as_posix()
+    for name in ("first", "second"):
+        tracker = ExperimentTracker(enabled=True, experiment_name="comparison", run_name=name)
+        with tracker.run({"stage": "walk-forward", "horizon": 36}):
+            assert mlflow.get_tracking_uri() == expected_uri
+        assert "MLFLOW_TRACKING_URI" not in os.environ
+
+    client = MlflowClient(tracking_uri=expected_uri)
+    experiment = client.get_experiment_by_name("comparison")
+    runs = client.search_runs([experiment.experiment_id])
+    assert {run.info.run_name for run in runs} == {"first", "second"}
 
 
 def test_model_reload_and_registry(store, tmp_path):
@@ -152,12 +170,18 @@ def test_pipeline_dispatch_and_predictions(store, tmp_path, monkeypatch):
     )
 
     def evaluate(df, features, **kwargs):
+        assert kwargs["threshold_class"] == 0
+        assert kwargs["class_zero_weight"] == 2.0
+        assert kwargs["tuning_objective"] == "AP_0"
         kwargs["tracker"].log_metrics({"logloss_mean": 0.5})
         return frame, pd.DataFrame({"Valor": [0.5]}, index=["LogLoss"])
 
     monkeypatch.setattr(pipeline, "run_walk_forward_evaluation", evaluate)
     pipeline.run_pipeline(
         stage="walk-forward",
+        threshold_class=0,
+        class_zero_weight=2.0,
+        tuning_objective="AP_0",
         out_dir=tmp_path / "output",
         tracking_uri=uri,
         experiment_name="test",
@@ -167,6 +191,10 @@ def test_pipeline_dispatch_and_predictions(store, tmp_path, monkeypatch):
         run for run in client.search_runs([experiment_id]) if "mlflow.parentRunId" in run.data.tags
     )
     assert child.data.metrics["logloss_mean"] == 0.5
+    parent = client.get_run(child.data.tags["mlflow.parentRunId"])
+    assert parent.data.params["threshold_class"] == "0"
+    assert parent.data.params["class_zero_weight"] == "2.0"
+    assert parent.data.params["tuning_objective"] == "AP_0"
     assert {item.path for item in client.list_artifacts(child.info.run_id)} == {
         "predictions.csv",
         "scorecard.csv",
