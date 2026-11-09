@@ -62,6 +62,7 @@ from .plots import (
     save_table_figure,
 )
 from .simulation import simulate_monthly_dca_roi, simulate_value_averaging_modified_roi
+from .tracking import ExperimentTracker
 from .tuning import tune_xgb_random_search_timeval
 
 
@@ -159,6 +160,7 @@ def run_walk_forward_evaluation(
     test_size: int = TEST_SIZE,
     out_dir: Optional[Path] = None,
     do_random_search: bool = DO_RANDOM_SEARCH,
+    tracker: Optional[ExperimentTracker] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Execute purged walk-forward temporal cross-validation with out-of-sample evaluation.
 
@@ -170,6 +172,7 @@ def run_walk_forward_evaluation(
         test_size: Out-of-sample test window in months.
         out_dir: Directory to save generated diagnostic plots and scorecards.
         do_random_search: Whether to run random search on validation folds.
+        tracker: Optional tracker owned by the pipeline orchestrator.
 
     Returns:
         Tuple containing (wf_df_predictions, wf_metrics_scorecard).
@@ -212,7 +215,21 @@ def run_walk_forward_evaluation(
         embargo=0,
     )
 
-    for train_slice, test_slice in folds:
+    if tracker is not None:
+        tracker.log_params(
+            {
+                "min_train_size": min_train_size,
+                "test_size": test_size,
+                "purge": horizon,
+                "folds": len(folds),
+                "tune_each_fold": TUNE_EACH_FOLD,
+                "random_search_iterations": RANDOM_SEARCH_N_ITER,
+                "random_search_seed": RANDOM_SEARCH_SEED,
+            }
+        )
+
+    for fold_index, (train_slice, test_slice) in enumerate(folds):
+        model = None
         train_df = df.iloc[train_slice]
         test_df = df.iloc[test_slice]
 
@@ -318,6 +335,51 @@ def run_walk_forward_evaluation(
 
         loglosses.append(binary_logloss(y_test.values, proba))
         briers.append(float(brier_score_loss(y_test, proba)))
+        if tracker is not None:
+            tracker.log_metrics(
+                {
+                    "fold.auc": aucs[-1],
+                    "fold.logloss": loglosses[-1],
+                    "fold.brier": briers[-1],
+                    "fold.f1": f1s[-1],
+                    "fold.accuracy": accuracies[-1],
+                    "fold.threshold": float(best_t),
+                    "fold.baseline_logloss": float(baseline_loglosses[-1]),
+                },
+                step=fold_index,
+            )
+            tracker.log_dict(
+                {
+                    "train_start": str(train_df.index.min()),
+                    "train_end": str(train_df.index.max()),
+                    "test_start": str(test_df.index.min()),
+                    "test_end": str(test_df.index.max()),
+                    "threshold": float(best_t),
+                    "model_params": model.get_params() if model is not None else {},
+                    "constant_predictor": model is None,
+                },
+                f"folds/fold_{fold_index:03d}.json",
+            )
+
+    if tracker is not None:
+        tracker.log_metrics(
+            {
+                "auc_mean": float(np.nanmean(aucs)),
+                "pr_auc_mean": float(np.nanmean(ap_scores)),
+                "logloss_mean": float(np.nanmean(loglosses)),
+                "brier_mean": float(np.nanmean(briers)),
+                "accuracy_mean": float(np.nanmean(accuracies)),
+                "balanced_accuracy_mean": float(np.nanmean(balanced_accs)),
+                "f1_mean": float(np.nanmean(f1s)),
+                "mcc_mean": float(np.nanmean(mccs)),
+                "precision_mean": float(np.nanmean(precisions)),
+                "recall_mean": float(np.nanmean(recalls)),
+                "precision_top20_mean": float(np.nanmean(precision_at_top20s)),
+                "lift_top20_mean": float(np.nanmean(lift_top20s)),
+                "baseline_logloss_mean": float(np.nanmean(baseline_loglosses)),
+                "baseline_brier_mean": float(np.nanmean(baseline_briers)),
+            }
+        )
 
     # ==========================================
     # Scorecards & Consolidated WF DataFrame
@@ -681,4 +743,12 @@ def run_walk_forward_evaluation(
         f"ROI final Value Averaging Modified (%): {float(va_curve['roi_pct'].dropna().iloc[-1]):.2f}%\n"
     )
 
+    if tracker is not None:
+        tracker.log_metrics(
+            {
+                "roi_dca_pct": float(bh_curve["roi_pct"].dropna().iloc[-1]),
+                "roi_signal_pct": float(sig_curve["roi_pct"].dropna().iloc[-1]),
+                "roi_value_averaging_pct": float(va_curve["roi_pct"].dropna().iloc[-1]),
+            }
+        )
     return wf_df, wf_metrics_scorecard

@@ -48,6 +48,7 @@ models/
 │   ├── simulation.py             # Strategy simulators (DCA, Value Averaging Modified, ML Allocation)
 │   ├── plots.py                  # High-resolution diagnostic figures, calibration plots & scorecards
 │   ├── tuning.py                 # Time-aware random search with temporal validation
+│   ├── tracking.py               # MLflow execution, stage, artifact and model tracking
 │   ├── walk_forward.py           # Walk-forward validation engine with Purging and Embargo
 │   ├── rollout.py                # 10-year out-of-sample rollout & regime stability evaluation
 │   └── explainability.py         # Full model training, live inference & SHAP tree interpretability
@@ -94,6 +95,11 @@ Using `TreeExplainer`, model decisions are fully explained through:
 ---
 
 ## 🚀 Usage & CLI Guide
+
+MLflow tracking is enabled by default. Each execution stores configuration and dataset
+metadata, stage diagnostics, validation metrics, predictions and the final XGBoost model.
+See the [MLflow guide](../docs/mlflow.md) for the UI, Docker, configuration and Model Registry.
+Add `--no-mlflow` to run without tracking.
 
 ### Run Complete Pipeline End-to-End
 ```bash

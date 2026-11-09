@@ -67,6 +67,12 @@ kafka/logs/
 models/metrics/
 models/backtest/
 
+# MLflow local metadata, model registry and artifacts
+.mlflow/
+mlruns/
+mlartifacts/
+mlflow.db*
+
 # Ensure dataset files in models/data are tracked
 !models/data/
 !models/data/**

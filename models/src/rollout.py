@@ -51,6 +51,7 @@ from .plots import (
     save_table_figure,
 )
 from .simulation import simulate_monthly_dca_roi
+from .tracking import ExperimentTracker
 
 
 def run_final_rollout(
@@ -62,6 +63,7 @@ def run_final_rollout(
     gap_months: int = FINAL_GAP_MONTHS,
     min_train_size: int = MIN_TRAIN_SIZE,
     out_dir: Optional[Path] = None,
+    tracker: Optional[ExperimentTracker] = None,
 ) -> Optional[pd.DataFrame]:
     """Evaluate model performance on an untouched out-of-sample period (e.g. final 10 years).
 
@@ -76,6 +78,7 @@ def run_final_rollout(
         gap_months: Temporal gap between training end and rollout start.
         min_train_size: Minimum required historical observations for training.
         out_dir: Output directory for saving figures and tables.
+        tracker: Optional tracker owned by the pipeline orchestrator.
 
     Returns:
         DataFrame of rollout predictions or None if insufficient history.
@@ -129,6 +132,7 @@ def run_final_rollout(
         X_score = X_val.iloc[es_size:]
         y_score = y_val.iloc[es_size:]
 
+    model_roll = None
     if len(np.unique(y_tr)) < 2:
         best_t_roll, _ = 0.5, float("nan")
         p_const = float(np.clip(y_tr.mean(), 1e-6, 1.0 - 1e-6))
@@ -176,6 +180,32 @@ def run_final_rollout(
     p0 = float(np.clip(y_train_full.mean(), 1e-6, 1.0 - 1e-6))
     baseline_ll = float(binary_logloss(y_roll.values, np.full_like(roll_proba, p0)))
     baseline_br = float(brier_score_loss(y_roll, np.full_like(roll_proba, p0)))
+    if tracker is not None:
+        tracker.log_params(
+            {
+                "rollout_months": rollout_months,
+                "gap_months": gap_months,
+                "train_end": str(train_df.index.max()),
+                "threshold": float(best_t_roll),
+                "constant_predictor": model_roll is None,
+            }
+        )
+        if model_roll is not None:
+            tracker.log_params(model_roll.get_params())
+        tracker.log_metrics(
+            {
+                "auc": roll_auc,
+                "pr_auc": roll_ap,
+                "logloss": roll_logloss,
+                "brier": roll_brier,
+                "base_rate": roll_base_rate,
+                "precision_top20": float(roll_precision_top20),
+                "lift_top20": float(roll_lift_top20),
+                "recall_class0": roll_recall_0,
+                "baseline_logloss": baseline_ll,
+                "baseline_brier": baseline_br,
+            }
+        )
 
     roll_ranking_metrics = pd.DataFrame(
         {
@@ -527,4 +557,11 @@ def run_final_rollout(
     print(f"ROI Final DCA: {float(bh_curve_roll['roi_pct'].dropna().iloc[-1]):.2f}%")
     print(f"ROI Final Señal ML: {float(sig_curve_roll['roi_pct'].dropna().iloc[-1]):.2f}%\n")
 
+    if tracker is not None:
+        tracker.log_metrics(
+            {
+                "roi_dca_pct": float(bh_curve_roll["roi_pct"].dropna().iloc[-1]),
+                "roi_signal_pct": float(sig_curve_roll["roi_pct"].dropna().iloc[-1]),
+            }
+        )
     return roll_plot_df

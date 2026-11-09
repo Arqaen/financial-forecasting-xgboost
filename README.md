@@ -10,6 +10,8 @@
 
 A rigorous, time-aware quantitative machine learning framework designed to forecast long-term macroeconomic regimes and directional trends for the **S&P 500 index**. The platform integrates multi-source macroeconomic and valuation signals, prevents lookahead bias via publication release lags, enforces purged walk-forward temporal cross-validation, and provides granular model explainability through SHAP.
 
+**MLflow experiment tracking is implemented** to compare pipeline executions and preserve their parameters, validation metrics, predictions, diagnostic figures and trained XGBoost models.
+
 Additionally, the repository features an exploratory **Data Engineering Proof of Concept (PoC)** demonstrating containerized, distributed streaming ingestion and lakehouse storage (Kafka, Spark, Airflow, MinIO).
 
 ![Aggregated walk-forward ROC and precision-recall curves with reference baselines](docs/images/walk_forward_roc_pr.png)
@@ -41,6 +43,7 @@ Additionally, the repository features an exploratory **Data Engineering Proof of
   - [1. Quantitative ML Research Pipeline](#1-quantitative-ml-research-pipeline)
   - [2. Data Engineering Infrastructure (PoC)](#2-data-engineering-infrastructure-poc)
 - [Research Artifacts & Diagnostic Outputs](#research-artifacts--diagnostic-outputs)
+- [MLflow Experiment Tracking](#mlflow-experiment-tracking)
 - [Roadmap](#roadmap)
 - [License & Disclaimer](#license--disclaimer)
 
@@ -339,6 +342,7 @@ Separating the research engine from the distributed lakehouse allows:
 | :--- | :--- | :--- |
 | **Machine Learning** | `XGBoost` | Gradient boosted decision trees for time series classification |
 | **Model Explainability** | `SHAP` | Game-theoretic TreeExplainer for feature attribution |
+| **Experiment Tracking & Model Registry** | `MLflow` | Execution history, metric comparison, model artifacts and optional model version registration |
 | **Scientific Computing** | `scikit-learn`, `pandas`, `numpy`, `scipy` | Feature engineering, calibration metrics, array computation |
 | **Data Visualization** | `matplotlib`, `seaborn` | High-resolution scorecards, calibration plots, equity curves |
 | **Data Acquisition** | `yfinance`, `pandas_datareader`, `requests` | Historical market and macroeconomic data ingestion |
@@ -346,7 +350,7 @@ Separating the research engine from the distributed lakehouse allows:
 | **Distributed Computing** | `Apache Spark` (PySpark) | Large-scale event processing, schema enforcement, Parquet writes |
 | **Event Streaming** | `Apache Kafka`, `ZooKeeper` | High-throughput streaming broker and distributed coordination |
 | **Lakehouse Storage** | `MinIO` (S3 API) | Partitioned object storage for Medallion lakehouse layers |
-| **Database & Metadata** | `PostgreSQL` | Metadata storage backend for Apache Airflow |
+| **Database & Metadata** | `PostgreSQL`, `SQLite` | Airflow metadata and local MLflow experiment/model registry metadata, respectively |
 | **Containerization** | `Docker`, `Docker Compose` | Reproducible multi-service local infrastructure |
 
 ---
@@ -356,6 +360,7 @@ Separating the research engine from the distributed lakehouse allows:
 ```text
 .
 ├── docs/images/                      # Curated thesis figures, screenshots & source references
+├── docs/mlflow.md                    # MLflow setup, configuration, Docker & model loading guide
 ├── models/                           # 🧠 PRIMARY ANALYTICAL & ML ENGINE
 │   ├── src/                          # Core modular package
 │   │   ├── config.py                 # Hyperparameters, horizons, feature lists & paths
@@ -364,6 +369,7 @@ Separating the research engine from the distributed lakehouse allows:
 │   │   ├── walk_forward.py           # Purged Walk-Forward CV engine with temporal embargo
 │   │   ├── rollout.py                # 10-Year out-of-sample final rollout evaluation
 │   │   ├── tuning.py                 # Time-aware hyperparameter random search
+│   │   ├── tracking.py               # MLflow runs, parameters, metrics, artifacts & model logging
 │   │   ├── explainability.py         # SHAP interpretability, tree explanations & live inference
 │   │   ├── simulation.py             # Quantitative strategy simulators (DCA, VA, ML Signal)
 │   │   ├── metrics.py                # Probabilistic (ECE, Brier) & financial performance metrics
@@ -394,7 +400,7 @@ Separating the research engine from the distributed lakehouse allows:
 │   └── spark-defaults.conf           # Spark S3A / MinIO connector configuration
 │
 ├── docker/                           # 🐳 Container Infrastructure
-│   ├── docker-compose.yml            # Multi-container orchestration (Airflow, Spark, Kafka, MinIO)
+│   ├── docker-compose.yml            # Airflow, Spark, Kafka, MinIO & optional MLflow profile
 │   ├── airflow/                      # Custom Airflow Docker image
 │   └── producer/                     # Custom Kafka producer container
 │
@@ -526,6 +532,45 @@ Executing the ML pipeline generates high-resolution figures and evaluation table
 
 ---
 
+## MLflow Experiment Tracking
+
+Pipeline executions automatically log parameters, dataset fingerprints, per-fold and
+aggregate evaluation metrics, predictions, diagnostic figures and the final XGBoost
+model to MLflow. Tracking is enabled by default for both pipeline entry points.
+
+Each execution creates a parent run with its configuration and dataset metadata,
+plus a child run for each requested stage:
+
+- **`eda`**: correlation and target distribution figures.
+- **`walk-forward`**: per-fold metric histories, aggregate scores, baselines, thresholds, predictions and evaluation figures.
+- **`rollout`**: final out-of-sample evaluation metrics, predictions and diagnostic figures.
+- **`explain`**: in-sample diagnostics, SHAP figures and the saved XGBoost model.
+
+To compare validation results in the UI, select the **`walk-forward`** or **`rollout`**
+child runs; their metrics are recorded separately from the parent configuration.
+
+```bash
+# Run the pipeline with a recognizable experiment run name
+python models/run_pipeline.py --stage all --run-name baseline-h36
+
+# In another terminal, with the same virtual environment activated, start the UI
+python -m mlflow server --host 127.0.0.1 --port 5000 --backend-store-uri sqlite:///.mlflow/mlflow.db
+```
+
+Run the UI command from the repository root and open <http://127.0.0.1:5000>.
+The server must be running to access this page.
+
+Results **persist on disk**: `.mlflow/mlflow.db` stores parameters, metrics and registry
+metadata, while `.mlflow/artifacts/` stores model files, predictions and figures.
+Closing the UI or restarting the server does not erase them. These generated files are
+excluded from Git and remain independent of `models/metrics/` cleanup.
+
+Use `--no-mlflow` to disable tracking, `--experiment-name` to group executions, or
+`--registered-model-name` to register a version of the final model. See the
+[MLflow guide](docs/mlflow.md) for environment settings, Docker hosting and loading saved models.
+
+---
+
 ## Roadmap
 
 - [x] Time-aware financial feature engineering with zero lookahead bias.
@@ -533,6 +578,7 @@ Executing the ML pipeline generates high-resolution figures and evaluation table
 - [x] XGBoost classifier with dynamic F1 threshold tuning.
 - [x] Probabilistic calibration diagnostics (ECE, Brier decomposition).
 - [x] SHAP game-theoretic explainability suite.
+- [x] MLflow experiment tracking, model artifacts and optional Model Registry.
 - [x] Dockerized Kafka $\to$ Spark $\to$ MinIO Bronze lakehouse PoC.
 - [ ] **Feature Store Integration:** Bridge the lakehouse and ML engine using Feast or Hopsworks.
 - [ ] **Airflow MLOps DAGs:** Automate model retraining, data drift monitoring, and inference inside Airflow.
