@@ -3,6 +3,7 @@
 import hashlib
 import math
 import os
+import time
 from contextlib import contextmanager
 from importlib.metadata import version
 from pathlib import Path
@@ -171,6 +172,57 @@ class ExperimentTracker:
             },
             "dataset.json",
         )
+
+    def log_investment_strategies(
+        self,
+        curves: Dict[str, pd.DataFrame],
+        *,
+        monthly_amount: float,
+        signal_multiplier: float,
+        figure_path: Path,
+    ) -> None:
+        """Save simulated contributions, portfolio curves and monthly metric histories."""
+        if self._mlflow is None:
+            return
+        from mlflow.entities import Metric
+
+        client = self._mlflow.MlflowClient(tracking_uri=self._mlflow.get_tracking_uri())
+        run_id = self._mlflow.active_run().info.run_id
+        timestamp = int(time.time() * 1000)
+        self.log_dict(
+            {
+                "monthly_amount": monthly_amount,
+                "signal_multiplier": signal_multiplier,
+                "signal_rule": "Contribute multiplier * monthly_amount if pred=1, else 0",
+                "execution": "Monthly purchases at the recorded closing price",
+                "valuation": "Shares times closing price, excluding fees, dividends and cash interest",
+                "roi": "(portfolio value - cumulative contributions) / cumulative contributions * 100",
+                "comparison": "Strategies may contribute different total amounts",
+                "metric_step": "Zero-based month index; exact dates are in each curve CSV",
+            },
+            "investment/assumptions.json",
+        )
+        for name, curve in curves.items():
+            dated_curve = curve.rename_axis("date")
+            self.log_frame(dated_curve, f"investment/{name}.csv")
+            last = curve.iloc[-1]
+            self.log_metrics(
+                {
+                    f"investment.{name}.final_roi_pct": float(last["roi_pct"]),
+                    f"investment.{name}.final_value": float(last["value"]),
+                    f"investment.{name}.total_contributed": float(last["invested"]),
+                    f"investment.{name}.profit": float(last["value"] - last["invested"]),
+                }
+            )
+            history = [
+                Metric(f"investment.{name}.{column}", float(value), timestamp, step)
+                for column in ("roi_pct", "value", "invested")
+                for step, value in enumerate(curve[column])
+                if math.isfinite(float(value))
+            ]
+            for start in range(0, len(history), 500):
+                client.log_batch(run_id, metrics=history[start : start + 500])
+        self._mlflow.log_artifact(str(figure_path), artifact_path="investment")
 
     def log_model(self, model: Any, example: pd.DataFrame) -> None:
         if self._mlflow is None:

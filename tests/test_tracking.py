@@ -15,6 +15,7 @@ from xgboost import XGBClassifier
 
 from models import run_pipeline as pipeline
 from models.src import tracking
+from models.src.simulation import simulate_monthly_dca_roi, simulate_signal_allocation_roi
 from models.src.tracking import ExperimentTracker
 
 
@@ -58,6 +59,46 @@ def test_tracking_roundtrip_and_stage_artifacts(store, tmp_path):
     assert parent.data.params["observations"] == "2"
     manifest = client.download_artifacts(parent.info.run_id, "dataset.json", str(tmp_path))
     assert len(json.loads(Path(manifest).read_text())["sha256"]) == 64
+
+
+def test_investment_tracking_preserves_cashflows_and_months(store, tmp_path):
+    uri, client, experiment_id = store
+    dates = pd.date_range("2020-01-31", periods=3, freq="ME")
+    prices = pd.Series([10.0, 20.0, 20.0], index=dates)
+    curves = {
+        "dca": simulate_monthly_dca_roi(prices, pd.Series(100.0, index=dates)),
+        "signal": simulate_signal_allocation_roi(
+            prices,
+            pd.Series([0, 1, 1], index=dates),
+            monthly_amount=100,
+            multiplier=2,
+        ),
+    }
+    figure = tmp_path / "strategy.png"
+    figure.write_bytes(b"figure")
+    tracker = ExperimentTracker(tracking_uri=uri, experiment_name="test")
+    with tracker.run({"stage": "walk-forward", "horizon": 36}):
+        tracker.log_investment_strategies(
+            curves,
+            monthly_amount=100,
+            signal_multiplier=2,
+            figure_path=figure,
+        )
+    run = client.search_runs([experiment_id])[0]
+    assert run.data.metrics["investment.dca.final_value"] == 400
+    assert run.data.metrics["investment.signal.total_contributed"] == 400
+    assert run.data.metrics["investment.signal.profit"] == 0
+    history = client.get_metric_history(run.info.run_id, "investment.signal.roi_pct")
+    assert [(m.step, m.value) for m in history] == [(1, 0), (2, 0)]
+    path = client.download_artifacts(run.info.run_id, "investment/signal.csv", str(tmp_path))
+    saved = pd.read_csv(path, parse_dates=["date"]).set_index("date")
+    pd.testing.assert_frame_equal(saved, curves["signal"].rename_axis("date"), check_freq=False)
+    assert {a.path for a in client.list_artifacts(run.info.run_id, "investment")} == {
+        "investment/assumptions.json",
+        "investment/dca.csv",
+        "investment/signal.csv",
+        "investment/strategy.png",
+    }
 
 
 def test_failed_stage_marks_parent_and_child_failed(store, tmp_path):
@@ -125,6 +166,9 @@ def test_disabled_tracking_never_imports_mlflow(monkeypatch, tmp_path):
             tracker.log_dict({}, "ignored.json")
             tracker.log_dataset(pd.DataFrame(), [])
             tracker.log_model(None, pd.DataFrame())
+            tracker.log_investment_strategies(
+                {}, monthly_amount=1, signal_multiplier=2, figure_path=output / "missing.png"
+            )
     assert not output.exists()
 
 

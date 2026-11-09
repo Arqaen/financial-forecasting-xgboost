@@ -308,7 +308,9 @@ def plot_classification_timeline(
 
     ax1.set_xlabel("Fecha")
     ax1.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-    ax1.xaxis.set_major_locator(mdates.YearLocator(year_locator))
+    year_span = dfp[date_col].max().year - dfp[date_col].min().year
+    year_interval = max(year_locator, 5) if year_span > 50 else year_locator
+    ax1.xaxis.set_major_locator(mdates.YearLocator(year_interval))
 
     ax0.grid(True, alpha=0.25)
     ax1.grid(True, alpha=0.25)
@@ -814,12 +816,16 @@ def plot_roi_strategies_comparison(
         bh_curve["roi_pct"],
         label=f"Buy&Hold DCA (x={monthly_amount:g}/mes)",
         color="tab:blue",
+        linestyle=(0, (5, 4)),
+        linewidth=2,
+        zorder=4,
     )
     ax.plot(
         sig_curve.index,
         sig_curve["roi_pct"],
         label=f"Señal (clase 1: {signal_multiplier:g}x, clase 0: 0x)",
         color="purple",
+        zorder=3,
     )
     if va_curve is not None:
         ax.plot(
@@ -827,13 +833,17 @@ def plot_roi_strategies_comparison(
             va_curve["roi_pct"],
             label=f"Value Averaging Modified (x={monthly_amount:g}/mes, min=x, max=3x)",
             color="tab:green",
+            linewidth=2,
+            zorder=2,
         )
 
     ax.axhline(0, linestyle="--", color="grey", alpha=0.6)
     ax.set_title(title)
     ax.set_ylabel("ROI (%)")
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-    ax.xaxis.set_major_locator(mdates.YearLocator(year_locator))
+    year_span = bh_curve.index.max().year - bh_curve.index.min().year
+    year_interval = max(year_locator, 5) if year_span > 50 else year_locator
+    ax.xaxis.set_major_locator(mdates.YearLocator(year_interval))
     ax.grid(True, alpha=0.3)
     ax.legend(loc="upper left")
     plt.tight_layout()

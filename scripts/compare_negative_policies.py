@@ -97,6 +97,7 @@ def main():
                 tracker=tracker,
                 out_dir=Path(tmp),
             )
+            mlflow.log_artifacts(tmp, artifact_path="diagnostics")
             factual = predictions[["date", "actual", "close_t", "close_t_plus_h"]]
             if reference is None:
                 reference = factual.copy()

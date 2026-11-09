@@ -11,7 +11,48 @@ from models.src.features import (
     create_targets,
     filter_features_by_history,
     prepare_modeling_dataset,
+    select_additional_features,
 )
+
+
+def test_preserve_missing_features_keeps_history_but_excludes_unknown_targets() -> None:
+    dates = pd.date_range("2000-01-31", periods=50, freq="ME")
+    raw = pd.DataFrame(
+        {"Close": np.arange(100.0, 150.0), "late": [np.nan] * 12 + list(range(38))},
+        index=dates,
+    )
+    complete, _ = prepare_modeling_dataset(raw, features=["late"], horizon=4)
+    extended, features = prepare_modeling_dataset(
+        raw,
+        features=["late"],
+        horizon=4,
+        keep_missing_features=True,
+    )
+    assert features == ["late"]
+    assert len(extended) == 46 and len(complete) == 34
+    assert extended["late"].iloc[:12].isna().all()
+    assert extended.index[-1] == dates[-5]
+    pd.testing.assert_series_equal(extended.loc[complete.index, "target"], complete["target"])
+
+
+def test_extra_feature_selection_uses_only_supplied_training_rows() -> None:
+    y = pd.Series([0, 1] * 40)
+    X = pd.DataFrame(
+        {
+            "signal": y,
+            "constant": np.ones(80),
+            "unavailable": [np.nan] * 80,
+            "too_recent": [np.nan] * 70 + list(y.iloc[-10:]),
+            "other": np.arange(80),
+        }
+    )
+    selected = select_additional_features(X, y, min_observations=60, max_features=1)
+    assert selected == ["signal"]
+    assert select_additional_features(X, y, max_features=0) == []
+    assert select_additional_features(X, pd.Series([1] * 80)) == []
+    # A candidate appearing only after the training cutoff is unavailable to selection.
+    X.loc[70:, "unavailable"] = y.iloc[70:]
+    assert select_additional_features(X.iloc[:60], y.iloc[:60]) == ["signal", "other"]
 
 
 @pytest.fixture

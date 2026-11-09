@@ -568,6 +568,12 @@ def run_final_rollout(
     print(f"ROI Final Señal ML: {float(sig_curve_roll['roi_pct'].dropna().iloc[-1]):.2f}%\n")
 
     if tracker is not None:
+        tracker.log_investment_strategies(
+            {"dca": bh_curve_roll, "signal": sig_curve_roll},
+            monthly_amount=MONTHLY_AMOUNT,
+            signal_multiplier=SIGNAL_MULTIPLIER,
+            figure_path=output_dir / "roi_strategies_final_rollout.png",
+        )
         tracker.log_metrics(
             {
                 "roi_dca_pct": float(bh_curve_roll["roi_pct"].dropna().iloc[-1]),

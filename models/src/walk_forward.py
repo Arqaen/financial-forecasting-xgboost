@@ -37,6 +37,7 @@ from .config import (
     TUNE_EACH_FOLD,
     TUNING_OBJECTIVE,
 )
+from .features import select_additional_features
 from .metrics import (
     best_threshold_by_f1,
     binary_logloss,
@@ -169,6 +170,10 @@ def run_walk_forward_evaluation(
     tuning_objective: str = TUNING_OBJECTIVE,
     tracker: Optional[ExperimentTracker] = None,
     threshold_class: int = THRESHOLD_CLASS,
+    validation_reference_start: Optional[str] = None,
+    additional_features: Optional[List[str]] = None,
+    min_feature_observations: int = 60,
+    max_additional_features: int = 5,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Execute purged walk-forward temporal cross-validation with out-of-sample evaluation.
 
@@ -185,6 +190,10 @@ def run_walk_forward_evaluation(
         tracker: Optional tracker owned by the pipeline orchestrator.
         threshold_class: Class whose F1 selects the cutoff on P(1) in validation.
         manual_params: Overrides for the manual XGBoost parameters.
+        validation_reference_start: Anchor internal validation lengths to this history start.
+        additional_features: Candidates selected separately within each fold's fit block.
+        min_feature_observations: Required training observations for each extra feature.
+        max_additional_features: Maximum extras ranked by training Spearman association.
 
     Returns:
         Tuple containing (wf_df_predictions, wf_metrics_scorecard).
@@ -242,6 +251,10 @@ def run_walk_forward_evaluation(
                 "tune_each_fold": TUNE_EACH_FOLD,
                 "random_search_iterations": RANDOM_SEARCH_N_ITER,
                 "random_search_seed": RANDOM_SEARCH_SEED,
+                "validation_reference_start": validation_reference_start,
+                "additional_feature_candidates": ",".join(additional_features or []),
+                "min_feature_observations": min_feature_observations,
+                "max_additional_features": max_additional_features,
             }
         )
 
@@ -251,19 +264,43 @@ def run_walk_forward_evaluation(
         train_df = df.iloc[train_slice]
         test_df = df.iloc[test_slice]
 
-        X_train = train_df[features]
+        candidates = [f for f in (additional_features or []) if f not in features]
+        X_train = train_df[features + candidates]
         y_train = train_df["target"].astype(int)
 
-        X_test = test_df[features]
+        X_test = test_df[features + candidates]
         y_test = test_df["target"].astype(int)
 
         # Internal temporal validation split
+        reference_offset = (
+            int(X_train.index.searchsorted(pd.Timestamp(validation_reference_start)))
+            if validation_reference_start is not None
+            else 0
+        )
         tr_slice, es_slice, score_slice = split_train_val_internal(
-            train_len=len(X_train),
+            train_len=len(X_train) - reference_offset,
             horizon=horizon,
             val_ratio=0.2,
             score_frac=SCORE_FRAC,
         )
+        tr_slice = slice(0, tr_slice.stop + reference_offset)
+        es_slice = slice(es_slice.start + reference_offset, es_slice.stop + reference_offset)
+        score_slice = slice(
+            score_slice.start + reference_offset, score_slice.stop + reference_offset
+        )
+        selected_extras = (
+            select_additional_features(
+                X_train.iloc[tr_slice][candidates],
+                y_train.iloc[tr_slice],
+                min_observations=min_feature_observations,
+                max_features=max_additional_features,
+            )
+            if candidates
+            else []
+        )
+        fold_features = features + selected_extras
+        X_train = X_train[fold_features]
+        X_test = X_test[fold_features]
 
         X_tr = X_train.iloc[tr_slice]
         y_tr = y_train.iloc[tr_slice]
@@ -385,6 +422,14 @@ def run_walk_forward_evaluation(
                     "test_end": str(test_df.index.max()),
                     "threshold": float(best_t),
                     "model_params": model.get_params() if model is not None else {},
+                    "features": fold_features,
+                    "fit_start": str(X_tr.index.min()),
+                    "fit_end": str(X_tr.index.max()),
+                    "fit_rows": len(X_tr),
+                    "early_stopping_start": str(X_es.index.min()),
+                    "early_stopping_end": str(X_es.index.max()),
+                    "threshold_validation_start": str(X_score.index.min()),
+                    "threshold_validation_end": str(X_score.index.max()),
                     "constant_predictor": model is None,
                     "parameter_selection_metric": tuning_metric,
                 },
@@ -794,6 +839,12 @@ def run_walk_forward_evaluation(
     )
 
     if tracker is not None:
+        tracker.log_investment_strategies(
+            {"dca": bh_curve, "signal": sig_curve, "value_averaging": va_curve},
+            monthly_amount=MONTHLY_AMOUNT,
+            signal_multiplier=SIGNAL_MULTIPLIER,
+            figure_path=output_dir / "roi_strategies_walk_forward.png",
+        )
         tracker.log_metrics(
             {
                 "roi_dca_pct": float(bh_curve["roi_pct"].dropna().iloc[-1]),

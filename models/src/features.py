@@ -251,6 +251,7 @@ def prepare_modeling_dataset(
     start_date: str = FECHA_INICIO,
     end_date: str = FECHA_OBJETIVO,
     min_history: float = MIN_HISTORY_RATIO,
+    keep_missing_features: bool = False,
 ) -> Tuple[pd.DataFrame, List[str]]:
     """End-to-end dataset preparation pipeline: features, lags, targets, date filtering, and NaN cleaning.
 
@@ -261,6 +262,7 @@ def prepare_modeling_dataset(
         start_date: Start date string (YYYY-MM-DD).
         end_date: End date string (YYYY-MM-DD).
         min_history: Minimum valid historical ratio for features.
+        keep_missing_features: Preserve feature NaNs and skip the global coverage filter.
 
     Returns:
         Tuple containing (cleaned_modeling_df, validated_features_list).
@@ -279,9 +281,13 @@ def prepare_modeling_dataset(
     df = df.loc[slice(start_date, end_date)].copy()
 
     # 3. Filter features by valid history
-    valid_features, dropped_features = filter_features_by_history(
-        df, feature_list, min_history=min_history
-    )
+    if keep_missing_features:
+        valid_features = [f for f in feature_list if f in df.columns]
+        dropped_features = [f for f in feature_list if f not in df.columns]
+    else:
+        valid_features, dropped_features = filter_features_by_history(
+            df, feature_list, min_history=min_history
+        )
     if dropped_features:
         print(
             f"[Features] Dropped features with insufficient history (<{min_history*100:.0f}%): {dropped_features}"
@@ -291,6 +297,31 @@ def prepare_modeling_dataset(
     df = df.replace([np.inf, -np.inf], np.nan)
     df = df.dropna(subset=["target"])
     df["target"] = df["target"].astype(int)
-    df = df.dropna(subset=valid_features)
+    if not keep_missing_features:
+        df = df.dropna(subset=valid_features)
 
     return df, valid_features
+
+
+def select_additional_features(
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    *,
+    min_observations: int = 60,
+    max_features: int = 5,
+) -> List[str]:
+    """Rank eligible candidates by absolute Spearman association in training only.
+
+    At least min_observations paired samples, two values and both target classes
+    are required. Stable sorting resolves ties in candidate column order.
+    """
+    if min_observations < 2 or max_features < 0:
+        raise ValueError("Require min_observations >= 2 and max_features >= 0")
+    paired = X_train.loc[y_train.notna()].replace([np.inf, -np.inf], np.nan)
+    eligible = (paired.notna().sum() >= min_observations) & (paired.nunique() > 1)
+    paired = paired.loc[:, eligible]
+    if paired.empty or y_train.nunique() < 2:
+        return []
+    association = paired.corrwith(y_train, method="spearman").abs().dropna()
+    ranked = association.sort_values(ascending=False, kind="stable").head(max_features)
+    return [str(feature) for feature in ranked.index]

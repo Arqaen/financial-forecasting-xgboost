@@ -29,6 +29,20 @@ Only the requested stages create child runs:
 | `rollout` | Out-of-sample metrics, baselines, ROI, threshold, training end date, parameters, predictions CSV and diagnostic figures; insufficient history is recorded as skipped |
 | `explain` | In-sample diagnostics, latest probability, SHAP figures and final XGBoost model with input example, signature and pinned inference dependencies |
 
+Walk-forward and rollout also save an `investment/` artifact folder with the ROI
+comparison figure, monthly portfolio CSVs and `assumptions.json`. Walk-forward
+compares DCA, the ML signal and modified value averaging; rollout compares DCA
+and the ML signal. The signal contributes twice the monthly amount when
+`pred=1` and zero when `pred=0`.
+
+Compare `investment.<strategy>.final_roi_pct`, `final_value`,
+`total_contributed` and `profit`, where strategy is `dca`, `signal` or
+`value_averaging`. Monthly `roi_pct`, `value` and `invested` histories use
+zero-based month steps; CSVs provide the calendar dates. The existing
+`roi_dca_pct`, `roi_signal_pct` and `roi_value_averaging_pct` metrics remain
+available. Capital contributions can differ between strategies. The simulations
+use the recorded closing prices and exclude fees, dividends and cash interest.
+
 Only files created or updated by a stage are uploaded, so `--no-clean` does not attach
 old figures from other stages. Undefined or infinite metrics are omitted. Exceptions
 propagate and mark the affected stage and parent run as `FAILED`.
@@ -66,6 +80,37 @@ On the repository dataset the unweighted depth-2 model detected 17 of the
 34 negatives in the later period, with 8 false alarms. Doubling the training
 weight improved AP for class 0 but detected 13 negatives with 6 false alarms.
 These periods are historical and the monthly 36-month outcomes overlap.
+
+## History and feature availability comparison
+
+Run `python -m scripts.compare_history_features` from the repository root.
+The `history-and-features-h36` experiment compares the complete-case reference,
+the same five features with earlier missing observations retained, and the longer
+history with extra candidate features selected in each training window.
+All three use depth 2, equal class weights, and the F1-class-1 threshold policy.
+
+The default command produces both the common-period comparison and full-history
+evaluations. Use `--evaluation-scope common` for the three runs from 1982 to 2022,
+or `--evaluation-scope full` for the two longer-history runs from 1948 to 2022.
+The full runs use data starting in December 1927, reserve the initial 20 years
+before evaluation, and align their yearly test folds to January. Their prediction
+and investment charts cover the full evaluated period.
+
+For the common-period comparison, the reference's calendar determines the test
+folds and internal validation dates; the longer histories extend the fitting block.
+The full-period runs use the standard internal validation split over their growing
+history. Each full run also records `shared_period.*` metrics for 1982 onward.
+Extra features require 60
+nonmissing fitting observations and variation; the five largest absolute Spearman
+associations with the training target are added to the fixed base features.
+The ranking uses neither validation targets nor test data. This is a univariate
+screen for usefulness; the out-of-sample comparison tests whether it improves
+the model. XGBoost receives missing feature values directly.
+
+Each run saves its selected features and fit/validation dates in `folds/`,
+comparison checks, predictions, diagnostic figures and investment strategy results.
+The production preparation defaults continue to use complete cases until a
+configuration is chosen from the comparison.
 
 Tracking uses explicit logging rather than autologging. Temporal splits, purging,
 hyperparameter selection and training behavior remain controlled by the existing code.

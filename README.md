@@ -264,17 +264,13 @@ To prevent the model from operating as a black box, the framework uses `shap.Tre
 
 ## Quantitative Strategy Simulation & Benchmarking
 
-The ML model's probabilistic outputs are translated into continuous allocation signals and benchmarked against standard quantitative investment strategies:
+The ROI chart compares three ways to buy shares at the recorded monthly closing price.
 
-1. **Continuous Probability-Weighted Strategy:** Allocates capital proportionally to the model's forward return probability:
+1. The **ML signal** uses the predicted class after applying the probability threshold. A class 1 prediction contributes twice the monthly base amount. A class 0 prediction skips that purchase. Previously purchased shares stay in the portfolio.
+2. **Dollar-cost averaging (DCA)** contributes a fixed amount every month.
+3. **Modified value averaging** increases contributions when the portfolio falls below its target value.
 
-$$
-\text{Weight}_t = f(\mathbb{P}(\text{Bull}_t))
-$$
-
-2. **Dollar-Cost Averaging (DCA):** Systematic fixed monthly capital injection benchmark.
-3. **Modified Value Averaging:** Dynamic contribution rule scaling purchases counter-cyclically relative to target portfolio trajectories.
-4. **Rule-Based Moving Average & RSI Models:** Classic trend-following benchmarks (e.g., 200-day EMA crossover and 14-month RSI oversold/overbought triggers).
+ROI is cumulative profit divided by contributed capital. Each strategy can contribute a different total. The directional equity figure illustrates probability-weighted forward returns. Its monthly observations have overlapping forecast horizons, so the compounded curve is theoretical. Moving-average and RSI benchmarks are available in the strategy comparison scripts.
 
 ---
 
